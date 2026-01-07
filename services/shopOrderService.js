@@ -395,7 +395,7 @@ async function createShopOrderInTransaction(
 
   try {
     await sequelize.query(
-      "INSERT INTO `shop_order` (`clientOrderNo`, `status`, `totalPrice`, `user`, `createdAt`, `updatedAt`, `orderExpireTime`, `paymentType`, `delivery_info`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO `shop_order` (`clientOrderNo`, `status`, `totalPrice`, `user`, `createdAt`, `updatedAt`, `orderExpireTime`, `delivery_info`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
       {
         replacements: [
           clientOrderNo,
@@ -405,7 +405,6 @@ async function createShopOrderInTransaction(
           nowMs,
           nowMs,
           orderExpireTimeMs,
-          paymentTypeRaw || null,
           deliveryInfoRaw || null,
         ],
         transaction,

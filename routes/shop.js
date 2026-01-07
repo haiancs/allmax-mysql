@@ -204,13 +204,6 @@ router.post("/cart/submit", async (req, res) => {
       ? body.userId.trim()
         : "";
 
-  const paymentTypeRaw =
-    typeof body.paymentType === "string"
-      ? body.paymentType.trim()
-      : typeof body.payment_type === "string"
-        ? body.payment_type.trim()
-        : "";
-
   const deliveryInfoRaw =
     typeof body.addressId === "string"
       ? body.addressId.trim()
@@ -254,14 +247,6 @@ router.post("/cart/submit", async (req, res) => {
     });
   }
 
-  if (paymentTypeRaw && paymentTypeRaw.length > 256) {
-    return res.status(400).send({
-      code: -1,
-      message: "paymentType 长度不能超过 256",
-      data: null,
-    });
-  }
-
   if (deliveryInfoRaw && deliveryInfoRaw.length > 64) {
     return res.status(400).send({
       code: -1,
@@ -281,7 +266,6 @@ router.post("/cart/submit", async (req, res) => {
         {
           clientOrderNo,
           userId,
-          paymentTypeRaw,
           deliveryInfoRaw,
           nowMs,
           orderExpireTimeMs,
