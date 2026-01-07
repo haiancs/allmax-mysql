@@ -88,7 +88,7 @@ router.post("/orders", async (req, res) => {
         ? body.clientOrderNo.trim()
           : "";
 
-  const items = body.items || [];
+  const items = body.orderItems || [];
 
   const deliveryInfoRaw =
     typeof body.addressId === "string"
