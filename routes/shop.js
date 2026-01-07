@@ -195,9 +195,7 @@ router.post("/cart/submit", async (req, res) => {
 
   const body = req.body && typeof req.body === "object" ? req.body : {};
   const clientOrderNo =
-    typeof body.client_order_no === "string"
-      ? body.client_order_no.trim()
-      : typeof body.clientOrderNo === "string"
+      typeof body.clientOrderNo === "string"
         ? body.clientOrderNo.trim()
         : "";
 

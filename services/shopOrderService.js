@@ -96,7 +96,7 @@ async function createShopOrderInTransaction(
 ) {
   async function loadOrderByClientOrderNo() {
     const rows = await sequelize.query(
-      "SELECT `_id`, `client_order_no`, `status`, `totalPrice`, `user`, `orderExpireTime`, `delivery_info`, `createdAt`, `updatedAt` FROM `shop_order` WHERE `client_order_no` = ? LIMIT 1",
+      "SELECT `_id`, `clientOrderNo`, `status`, `totalPrice`, `user`, `orderExpireTime`, `delivery_info`, `createdAt`, `updatedAt` FROM `shop_order` WHERE `clientOrderNo` = ? LIMIT 1",
       {
         replacements: [clientOrderNo],
         type: QueryTypes.SELECT,
@@ -395,7 +395,7 @@ async function createShopOrderInTransaction(
 
   try {
     await sequelize.query(
-      "INSERT INTO `shop_order` (`client_order_no`, `status`, `totalPrice`, `user`, `createdAt`, `updatedAt`, `orderExpireTime`, `paymentType`, `delivery_info`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO `shop_order` (`clientOrderNo`, `status`, `totalPrice`, `user`, `createdAt`, `updatedAt`, `orderExpireTime`, `paymentType`, `delivery_info`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       {
         replacements: [
           clientOrderNo,
@@ -475,7 +475,7 @@ async function createShopOrderInTransaction(
   }
 
   const orderRows = await sequelize.query(
-    "SELECT `client_order_no`, `status`, `totalPrice`, `user`, `orderExpireTime`, `delivery_info`, `createdAt`, `updatedAt` FROM `shop_order` WHERE `_id` = ? LIMIT 1",
+    "SELECT `clientOrderNo`, `status`, `totalPrice`, `user`, `orderExpireTime`, `delivery_info`, `createdAt`, `updatedAt` FROM `shop_order` WHERE `_id` = ? LIMIT 1",
     {
       replacements: [orderId],
       type: QueryTypes.SELECT,
