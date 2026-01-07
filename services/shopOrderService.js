@@ -87,6 +87,7 @@ async function createShopOrderInTransaction(
     clientOrderNo,
     userId,
     deliveryInfoRaw,
+    isDistributor,
     nowMs,
     orderExpireTimeMs,
     resolveItems,
@@ -163,9 +164,10 @@ async function createShopOrderInTransaction(
     const txnSeqno = generateStableTxnSeqno(orderId);
     try {
       await sequelize.query(
-        "INSERT INTO `llpay_v2` (`txnSeqno`, `orderId`, `userId`, `status`, `amountFen`, `createdAt`, `updatedAt`, `expireTime`, `retryCount`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO `llpay_v2` (`_id`, `txnSeqno`, `orderId`, `userId`, `status`, `amountFen`, `createdAt`, `updatedAt`, `expireTime`, `retryCount`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         {
           replacements: [
+            generateId(),
             txnSeqno,
             orderId,
             llUserId || null,
@@ -256,8 +258,10 @@ async function createShopOrderInTransaction(
     String(a).localeCompare(String(b))
   );
 
+  const distributor = isDistributor === true;
+
   const skuRows = await sequelize.query(
-    "SELECT `_id`, `price`, COALESCE(`stock`, 0) AS `stock` FROM `shop_sku` WHERE `_id` IN (:skuIds)",
+    "SELECT `_id`, `price`, `wholesale_price` AS `wholesalePrice`, COALESCE(`stock`, 0) AS `stock` FROM `shop_sku` WHERE `_id` IN (:skuIds)",
     {
       replacements: { skuIds: sortedSkuIds },
       type: QueryTypes.SELECT,
@@ -381,7 +385,10 @@ async function createShopOrderInTransaction(
       continue;
     }
 
-    const unitFen = Math.round(Number(sku.price || 0) * 100);
+    const unitPrice = distributor
+      ? Number((sku.wholesalePrice ?? sku.price) || 0)
+      : Number(sku.price || 0);
+    const unitFen = Math.round(unitPrice * 100);
     totalFen += unitFen * qty;
   }
 
@@ -392,12 +399,15 @@ async function createShopOrderInTransaction(
   }
 
   const totalPrice = totalFen / 100;
+  const orderId = generateId();
+  const llUserId = normalizedUserId || "";
 
   try {
     await sequelize.query(
-      "INSERT INTO `shop_order` (`clientOrderNo`, `status`, `totalPrice`, `user`, `createdAt`, `updatedAt`, `orderExpireTime`, `delivery_info`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO `shop_order` (`_id`, `clientOrderNo`, `status`, `totalPrice`, `user`, `createdAt`, `updatedAt`, `orderExpireTime`, `delivery_info`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
       {
         replacements: [
+          orderId,
           clientOrderNo,
           "TO_PAY",
           totalPrice,
@@ -450,7 +460,7 @@ async function createShopOrderInTransaction(
 
   if (orderItemsToInsert.length) {
     const placeholders = orderItemsToInsert
-      .map(() => "(?, ?, ?, ?, ?, ?, ?)")
+      .map(() => "(?, ?, ?, ?, ?, ?)")
       .join(", ");
     const replacements = [];
     for (const item of orderItemsToInsert) {
@@ -484,7 +494,7 @@ async function createShopOrderInTransaction(
   const createdOrder = orderRows[0] || null;
   const [createdItems, createdLlpay] = await Promise.all([
     loadOrderItemsByOrderId(orderId),
-    loadOrCreateLlpayByOrderId(orderId, totalFen, llUserId || ""),
+    loadOrCreateLlpayByOrderId(orderId, totalFen, llUserId),
   ]);
 
   if (typeof afterOrderCreated === "function") {

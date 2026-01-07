@@ -89,6 +89,7 @@ router.post("/orders", async (req, res) => {
           : "";
 
   const items = body.orderItems || [];
+  const isDistributor = body.isDistributor === true;
 
   const deliveryInfoRaw =
     typeof body.addressId === "string"
@@ -158,6 +159,7 @@ router.post("/orders", async (req, res) => {
           clientOrderNo,
           userId,
           deliveryInfoRaw,
+          isDistributor,
           nowMs,
           orderExpireTimeMs,
           resolveItems: async () => ({
@@ -208,6 +210,7 @@ router.post("/cart/submit", async (req, res) => {
     typeof body.addressId === "string"
       ? body.addressId.trim()
         : "";
+  const isDistributor = body.isDistributor === true;
 
   const cartItemIdsRaw = Array.isArray(body.cart_item_ids)
     ? body.cart_item_ids
@@ -267,6 +270,7 @@ router.post("/cart/submit", async (req, res) => {
           clientOrderNo,
           userId,
           deliveryInfoRaw,
+          isDistributor,
           nowMs,
           orderExpireTimeMs,
           resolveItems: async () => {
