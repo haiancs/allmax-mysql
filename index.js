@@ -96,22 +96,29 @@ app.get("/api/wx_openid", async (req, res) => {
 });
 
 const portFromEnv = process.env.PORT;
-const parsedPort = portFromEnv === undefined ? 8081 : Number(portFromEnv);
-const port = Number.isFinite(parsedPort) ? parsedPort : 8081;
+const defaultPort =
+  typeof process.getuid === "function" && process.getuid() === 0 ? 80 : 8080;
+const parsedPort = portFromEnv === undefined ? defaultPort : Number(portFromEnv);
+const port = Number.isFinite(parsedPort) && parsedPort > 0 ? parsedPort : defaultPort;
 
 async function bootstrap() {
-  try {
-    await initDB();
-    app.listen(port, () => {
-      console.log("启动成功", port);
-      if (!checkConnection()) {
-        console.log("⚠️  警告: 数据库连接失败，应用将以有限功能模式运行");
-        console.log("请检查 .env 文件中的数据库配置");
-      }
-    });
-  } catch (error) {
+  const server = app.listen(port, "0.0.0.0", () => {
+    console.log("启动成功", port);
+  });
+
+  server.on("error", (error) => {
     console.error("启动失败:", error);
     process.exit(1);
+  });
+
+  try {
+    await initDB();
+    if (!checkConnection()) {
+      console.log("⚠️  警告: 数据库连接失败，应用将以有限功能模式运行");
+      console.log("请检查 .env 文件中的数据库配置");
+    }
+  } catch (error) {
+    console.error("数据库初始化失败:", error);
   }
 }
 

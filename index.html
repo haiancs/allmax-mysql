@@ -417,11 +417,11 @@
     let dbConnected = false;
     const apiBase = (function () {
       if (window.location.protocol === "file:") {
-        return "http://127.0.0.1:8081";
+        return "http://127.0.0.1:8080";
       }
-      if (window.location.port && window.location.port !== "8081") {
+      if (window.location.port && window.location.port !== "8080") {
         return (
-          window.location.protocol + "//" + window.location.hostname + ":8081"
+          window.location.protocol + "//" + window.location.hostname + ":8080"
         );
       }
       return "";
