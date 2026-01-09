@@ -4,7 +4,9 @@ const cors = require("cors");
 const morgan = require("morgan");
 const { init: initDB, checkConnection, sequelize } = require("./db");
 const distributionRouter = require("./routes/distribution");
+const ordersRouter = require("./routes/orders");
 const shopRouter = require("./routes/shop");
+const shopSkuAttrRouter = require("./routes/shopSkuAttr");
 
 const logger = morgan("tiny");
 
@@ -13,8 +15,10 @@ app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 app.use(cors());
 app.use(logger);
+app.use("/api", ordersRouter);
 app.use("/api/distribution", distributionRouter);
 app.use("/api/shop", shopRouter);
+app.use("/api/shop", shopSkuAttrRouter);
 
 // 首页
 app.get("/", async (req, res) => {
