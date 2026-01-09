@@ -18,10 +18,12 @@ router.get("/orders", async (req, res) => {
   const pageSizeRaw =
     typeof req?.query?.pageSize === "string" ? req.query.pageSize : "";
   const userIdRaw = typeof req?.query?.userId === "string" ? req.query.userId : "";
+  const statusRaw = typeof req?.query?.status === "string" ? req.query.status : "";
 
   const userId = userIdRaw.trim();
   const pageNumber = Number(pageNumberRaw || "1");
   const pageSize = Number(pageSizeRaw || "10");
+  const statusText = statusRaw.trim();
 
   if (!userId) {
     return res.status(400).send({
@@ -35,6 +37,14 @@ router.get("/orders", async (req, res) => {
     return res.status(400).send({
       code: -1,
       message: "userId 长度不能超过 64",
+      data: null,
+    });
+  }
+
+  if (statusText && statusText.length > 64) {
+    return res.status(400).send({
+      code: -1,
+      message: "status 长度不能超过 64",
       data: null,
     });
   }
@@ -64,9 +74,31 @@ router.get("/orders", async (req, res) => {
   }
 
   try {
+    const whereParts = ["`user` = :userId"];
+    const replacements = { userId };
+
+    if (statusText) {
+      const statuses = statusText
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+      if (statuses.length) {
+        if (statuses.length > 20) {
+          return res.status(400).send({
+            code: -1,
+            message: "status 数量不能超过 20",
+            data: null,
+          });
+        }
+        whereParts.push("`status` IN (:statuses)");
+        replacements.statuses = Array.from(new Set(statuses));
+      }
+    }
+
     const totalRows = await sequelize.query(
-      "SELECT COUNT(*) AS `total` FROM `shop_order` WHERE `user` = :userId",
-      { replacements: { userId }, type: QueryTypes.SELECT }
+      `SELECT COUNT(*) AS \`total\` FROM \`shop_order\` WHERE ${whereParts.join(" AND ")}`,
+      { replacements, type: QueryTypes.SELECT }
     );
     const total = Number(totalRows?.[0]?.total || 0);
 
@@ -74,11 +106,11 @@ router.get("/orders", async (req, res) => {
     const orderRows = await sequelize.query(
       `SELECT \`_id\`, \`clientOrderNo\`, \`status\`, \`totalPrice\`, \`user\`, \`orderExpireTime\`, \`delivery_info\`, \`createdAt\`, \`updatedAt\`
        FROM \`shop_order\`
-       WHERE \`user\` = :userId
+       WHERE ${whereParts.join(" AND ")}
        ORDER BY \`createdAt\` DESC, \`_id\` DESC
        LIMIT :limit OFFSET :offset`,
       {
-        replacements: { userId, limit: pageSize, offset },
+        replacements: { ...replacements, limit: pageSize, offset },
         type: QueryTypes.SELECT,
       }
     );
@@ -170,4 +202,3 @@ router.get("/orders", async (req, res) => {
 });
 
 module.exports = router;
-
