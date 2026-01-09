@@ -18,12 +18,18 @@ router.get("/orders", async (req, res) => {
   const pageSizeRaw =
     typeof req?.query?.pageSize === "string" ? req.query.pageSize : "";
   const userIdRaw = typeof req?.query?.userId === "string" ? req.query.userId : "";
-  const statusRaw = typeof req?.query?.status === "string" ? req.query.status : "";
+  const statusParam = req?.query?.status;
 
   const userId = userIdRaw.trim();
   const pageNumber = Number(pageNumberRaw || "1");
   const pageSize = Number(pageSizeRaw || "10");
-  const statusText = statusRaw.trim();
+
+  const statusText =
+    Array.isArray(statusParam)
+      ? statusParam.map((s) => String(s)).join(",").trim()
+      : typeof statusParam === "string"
+        ? statusParam.trim()
+        : "";
 
   if (!userId) {
     return res.status(400).send({
@@ -91,8 +97,31 @@ router.get("/orders", async (req, res) => {
             data: null,
           });
         }
+
+        const allowedStatuses = new Set([
+          "TO_PAY",
+          "TO_SEND",
+          "TO_RECEIVE",
+          "FINISHED",
+          "CANCELED",
+          "RETURN_APPLIED",
+          "RETURN_REFUSED",
+          "RETURN_FINISH",
+          "RETURN_MONEY_REFUSED",
+        ]);
+
+        const uniqStatuses = Array.from(new Set(statuses));
+        const invalid = uniqStatuses.filter((s) => !allowedStatuses.has(s));
+        if (invalid.length) {
+          return res.status(400).send({
+            code: -1,
+            message: `status 无效: ${invalid.slice(0, 10).join(", ")}`,
+            data: null,
+          });
+        }
+
         whereParts.push("`status` IN (:statuses)");
-        replacements.statuses = Array.from(new Set(statuses));
+        replacements.statuses = uniqStatuses;
       }
     }
 
