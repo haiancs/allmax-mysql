@@ -7,6 +7,7 @@ const distributionRouter = require("./routes/distribution");
 const ordersRouter = require("./routes/orders");
 const shopRouter = require("./routes/shop");
 const shopSkuAttrRouter = require("./routes/shopSkuAttr");
+const shopCartRouter = require("./routes/shopCart");
 
 const logger = morgan("tiny");
 
@@ -19,6 +20,7 @@ app.use("/api", ordersRouter);
 app.use("/api/distribution", distributionRouter);
 app.use("/api/shop", shopRouter);
 app.use("/api/shop", shopSkuAttrRouter);
+app.use("/api/shop", shopCartRouter);
 
 // 首页
 app.get("/", async (req, res) => {
