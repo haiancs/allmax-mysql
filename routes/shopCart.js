@@ -217,5 +217,416 @@ router.post("/cart/add", async (req, res) => {
   }
 });
 
-module.exports = router;
+router.get("/cart", async (req, res) => {
+  if (!checkConnection()) {
+    return res.status(503).send({
+      code: -1,
+      message: "数据库未连接，请检查配置",
+      data: null,
+    });
+  }
 
+  const userRaw =
+    typeof req?.query?.user === "string"
+      ? req.query.user
+      : typeof req?.query?.userId === "string"
+        ? req.query.userId
+        : "";
+  const userId = userRaw.trim();
+
+  if (!userId) {
+    return res.status(400).send({
+      code: -1,
+      message: "user 必须存在",
+      data: null,
+    });
+  }
+
+  if (userId.length > 64) {
+    return res.status(400).send({
+      code: -1,
+      message: "user 长度不能超过 64",
+      data: null,
+    });
+  }
+
+  try {
+    const rows = await sequelize.query(
+      `SELECT
+        c.\`_id\` AS \`cartItemId\`,
+        c.\`user\` AS \`user\`,
+        c.\`sku\` AS \`skuId\`,
+        c.\`count\` AS \`count\`,
+        c.\`distribution_record\` AS \`distributionRecordId\`,
+        c.\`createdAt\` AS \`createdAt\`,
+        c.\`updatedAt\` AS \`updatedAt\`,
+        s.\`price\` AS \`price\`,
+        s.\`wholesale_price\` AS \`wholesalePrice\`,
+        s.\`image\` AS \`image\`,
+        s.\`spu\` AS \`spuId\`,
+        sp.\`name\` AS \`spuName\`,
+        dr.\`share_price\` AS \`sharePrice\`
+      FROM \`shop_cart_item\` c
+      INNER JOIN \`shop_sku\` s ON s.\`_id\` = c.\`sku\`
+      LEFT JOIN \`shop_spu\` sp ON sp.\`_id\` = s.\`spu\`
+      LEFT JOIN \`shop_distribution_record\` dr ON dr.\`_id\` = c.\`distribution_record\`
+      WHERE c.\`user\` = :userId
+      ORDER BY c.\`createdAt\` DESC, c.\`_id\` DESC`,
+      {
+        replacements: { userId },
+        type: QueryTypes.SELECT,
+      }
+    );
+
+    const items = (rows || []).map((row) => {
+      const skuId =
+        row?.skuId != null && String(row.skuId).trim()
+          ? String(row.skuId).trim()
+          : "";
+      const rawPrice =
+        row?.price != null && row.price !== "" ? Number(row.price) : null;
+      const sharePrice =
+        row?.sharePrice != null && row.sharePrice !== ""
+          ? Number(row.sharePrice)
+          : null;
+      return {
+        _id: row?.cartItemId != null ? String(row.cartItemId) : "",
+        user: row?.user != null ? String(row.user) : null,
+        skuId,
+        count: Number(row?.count || 0),
+        distributionRecordId:
+          row?.distributionRecordId != null
+            ? String(row.distributionRecordId).trim() || null
+            : null,
+        createdAt: row?.createdAt != null ? row.createdAt : null,
+        updatedAt: row?.updatedAt != null ? row.updatedAt : null,
+        sku: skuId
+          ? {
+              _id: skuId,
+              image: row?.image != null ? String(row.image) : null,
+              price: rawPrice,
+              wholesale_price:
+                row?.wholesalePrice != null ? Number(row.wholesalePrice) : null,
+              share_price: sharePrice,
+              spu:
+                row?.spuId != null
+                  ? {
+                      _id: String(row.spuId),
+                      name: row?.spuName != null ? String(row.spuName) : null,
+                    }
+                  : null,
+            }
+          : null,
+      };
+    });
+
+    return res.send({
+      code: 0,
+      data: items,
+    });
+  } catch (error) {
+    return res.status(500).send({
+      code: -1,
+      message: error?.message || "查询购物车失败",
+      data: null,
+    });
+  }
+});
+
+router.post("/cart/update-count", async (req, res) => {
+  if (!checkConnection()) {
+    return res.status(503).send({
+      code: -1,
+      message: "数据库未连接，请检查配置",
+      data: null,
+    });
+  }
+
+  const body = req.body && typeof req.body === "object" ? req.body : {};
+
+  const idRaw =
+    typeof body.id === "string"
+      ? body.id
+      : typeof body.cartItemId === "string"
+        ? body.cartItemId
+        : "";
+  const id = idRaw.trim();
+
+  const userRaw =
+    typeof body.user === "string"
+      ? body.user
+      : typeof body.userId === "string"
+        ? body.userId
+        : "";
+  const userId = userRaw.trim();
+
+  const countRaw = body.count;
+
+  if (!id) {
+    return res.status(400).send({
+      code: -1,
+      message: "id 必须存在",
+      data: null,
+    });
+  }
+
+  if (id.length > 64) {
+    return res.status(400).send({
+      code: -1,
+      message: "id 长度不能超过 64",
+      data: null,
+    });
+  }
+
+  if (!userId) {
+    return res.status(400).send({
+      code: -1,
+      message: "user 必须存在",
+      data: null,
+    });
+  }
+
+  if (userId.length > 64) {
+    return res.status(400).send({
+      code: -1,
+      message: "user 长度不能超过 64",
+      data: null,
+    });
+  }
+
+  const count = Number(countRaw);
+  if (!Number.isFinite(count) || count <= 0 || !Number.isInteger(count)) {
+    return res.status(400).send({
+      code: -1,
+      message: "count 必须为正整数",
+      data: null,
+    });
+  }
+
+  const nowMs = Date.now();
+
+  try {
+    const [_, metadata] = await sequelize.query(
+      "UPDATE `shop_cart_item` SET `count` = ?, `updatedAt` = ? WHERE `_id` = ? AND `user` = ?",
+      {
+        replacements: [count, nowMs, id, userId],
+      }
+    );
+
+    const affectedRows =
+      metadata && typeof metadata.affectedRows === "number"
+        ? metadata.affectedRows
+        : 0;
+
+    if (!affectedRows) {
+      return res.status(400).send({
+        code: -1,
+        message: "购物车项不存在",
+        data: null,
+      });
+    }
+
+    const rows = await sequelize.query(
+      "SELECT `_id`, `user`, `sku`, `count`, `distribution_record` FROM `shop_cart_item` WHERE `_id` = ? AND `user` = ? LIMIT 1",
+      {
+        replacements: [id, userId],
+        type: QueryTypes.SELECT,
+      }
+    );
+
+    const row = rows[0] || null;
+    if (!row) {
+      return res.status(400).send({
+        code: -1,
+        message: "购物车项不存在",
+        data: null,
+      });
+    }
+
+    return res.send({
+      code: 0,
+      data: {
+        item: {
+          id: String(row._id),
+          user: row.user != null ? String(row.user) : null,
+          skuId: row.sku != null ? String(row.sku) : null,
+          count: Number(row.count || 0),
+          distributionRecordId:
+            row.distribution_record != null
+              ? String(row.distribution_record).trim() || null
+              : null,
+        },
+        op: "updated",
+      },
+    });
+  } catch (error) {
+    return res.status(500).send({
+      code: -1,
+      message: error?.message || "更新购物车失败",
+      data: null,
+    });
+  }
+});
+
+router.post("/cart/delete", async (req, res) => {
+  if (!checkConnection()) {
+    return res.status(503).send({
+      code: -1,
+      message: "数据库未连接，请检查配置",
+      data: null,
+    });
+  }
+
+  const body = req.body && typeof req.body === "object" ? req.body : {};
+
+  const idRaw =
+    typeof body.id === "string"
+      ? body.id
+      : typeof body.cartItemId === "string"
+        ? body.cartItemId
+        : "";
+  const id = idRaw.trim();
+
+  const userRaw =
+    typeof body.user === "string"
+      ? body.user
+      : typeof body.userId === "string"
+        ? body.userId
+        : "";
+  const userId = userRaw.trim();
+
+  if (!id) {
+    return res.status(400).send({
+      code: -1,
+      message: "id 必须存在",
+      data: null,
+    });
+  }
+
+  if (id.length > 64) {
+    return res.status(400).send({
+      code: -1,
+      message: "id 长度不能超过 64",
+      data: null,
+    });
+  }
+
+  if (!userId) {
+    return res.status(400).send({
+      code: -1,
+      message: "user 必须存在",
+      data: null,
+    });
+  }
+
+  if (userId.length > 64) {
+    return res.status(400).send({
+      code: -1,
+      message: "user 长度不能超过 64",
+      data: null,
+    });
+  }
+
+  try {
+    const [_, metadata] = await sequelize.query(
+      "DELETE FROM `shop_cart_item` WHERE `_id` = ? AND `user` = ?",
+      {
+        replacements: [id, userId],
+      }
+    );
+
+    const affectedRows =
+      metadata && typeof metadata.affectedRows === "number"
+        ? metadata.affectedRows
+        : 0;
+
+    if (!affectedRows) {
+      return res.status(400).send({
+        code: -1,
+        message: "购物车项不存在",
+        data: null,
+      });
+    }
+
+    return res.send({
+      code: 0,
+      data: {
+        id,
+        user: userId,
+        deleted: true,
+      },
+    });
+  } catch (error) {
+    return res.status(500).send({
+      code: -1,
+      message: error?.message || "删除购物车失败",
+      data: null,
+    });
+  }
+});
+
+router.post("/cart/clear", async (req, res) => {
+  if (!checkConnection()) {
+    return res.status(503).send({
+      code: -1,
+      message: "数据库未连接，请检查配置",
+      data: null,
+    });
+  }
+
+  const body = req.body && typeof req.body === "object" ? req.body : {};
+
+  const userRaw =
+    typeof body.user === "string"
+      ? body.user
+      : typeof body.userId === "string"
+        ? body.userId
+        : "";
+  const userId = userRaw.trim();
+
+  if (!userId) {
+    return res.status(400).send({
+      code: -1,
+      message: "user 必须存在",
+      data: null,
+    });
+  }
+
+  if (userId.length > 64) {
+    return res.status(400).send({
+      code: -1,
+      message: "user 长度不能超过 64",
+      data: null,
+    });
+  }
+
+  try {
+    const [_, metadata] = await sequelize.query(
+      "DELETE FROM `shop_cart_item` WHERE `user` = ?",
+      {
+        replacements: [userId],
+      }
+    );
+
+    const affectedRows =
+      metadata && typeof metadata.affectedRows === "number"
+        ? metadata.affectedRows
+        : 0;
+
+    return res.send({
+      code: 0,
+      data: {
+        user: userId,
+        deletedCount: affectedRows,
+      },
+    });
+  } catch (error) {
+    return res.status(500).send({
+      code: -1,
+      message: error?.message || "清空购物车失败",
+      data: null,
+    });
+  }
+});
+
+module.exports = router;
