@@ -8,6 +8,8 @@ const ordersRouter = require("./routes/orders");
 const shopRouter = require("./routes/shop");
 const shopSkuAttrRouter = require("./routes/shopSkuAttr");
 const shopCartRouter = require("./routes/shopCart");
+const llpayRouter = require("./routes/llpay");
+const cainiaoRouter = require("./routes/cainiao");
 
 const logger = morgan("tiny");
 
@@ -21,13 +23,14 @@ app.use("/api/distribution", distributionRouter);
 app.use("/api/shop", shopRouter);
 app.use("/api/shop", shopSkuAttrRouter);
 app.use("/api/shop", shopCartRouter);
+app.use("/api/llpay", llpayRouter);
+app.use("/api/cainiao", cainiaoRouter);
 
 // 首页
 app.get("/", async (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
 
-// 获取数据库状态
 app.get("/api/status", async (req, res) => {
   res.send({
     code: 0,

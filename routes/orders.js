@@ -4,7 +4,7 @@ const { checkConnection, sequelize } = require("../db");
 
 const router = express.Router();
 
-router.get("/orders", async (req, res) => {
+router.post("/orders", async (req, res) => {
   if (!checkConnection()) {
     return res.status(503).send({
       code: -1,
@@ -13,12 +13,22 @@ router.get("/orders", async (req, res) => {
     });
   }
 
+  const body = req.body || {};
+
   const pageNumberRaw =
-    typeof req?.query?.pageNumber === "string" ? req.query.pageNumber : "";
+    typeof body.pageNumber === "string"
+      ? body.pageNumber
+      : typeof body.pageNumber === "number"
+        ? String(body.pageNumber)
+        : "";
   const pageSizeRaw =
-    typeof req?.query?.pageSize === "string" ? req.query.pageSize : "";
-  const userIdRaw = typeof req?.query?.userId === "string" ? req.query.userId : "";
-  const statusParam = req?.query?.status;
+    typeof body.pageSize === "string"
+      ? body.pageSize
+      : typeof body.pageSize === "number"
+        ? String(body.pageSize)
+        : "";
+  const userIdRaw = typeof body.userId === "string" ? body.userId : "";
+  const statusParam = body.status;
 
   const userId = userIdRaw.trim();
   const pageNumber = Number(pageNumberRaw || "1");
