@@ -73,6 +73,7 @@ function normalizeSkuItems(rawItems, fail, messages = {}) {
   };
 }
 
+// 创建订单
 router.post("/orders", async (req, res) => {
   if (!checkConnection()) {
     return res.status(503).send({

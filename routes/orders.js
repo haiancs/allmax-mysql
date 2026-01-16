@@ -4,6 +4,7 @@ const { checkConnection, sequelize } = require("../db");
 
 const router = express.Router();
 
+// 获取订单列表
 router.post("/orders", async (req, res) => {
   if (!checkConnection()) {
     return res.status(503).send({

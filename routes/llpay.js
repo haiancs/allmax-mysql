@@ -184,7 +184,7 @@ router.post("/pay", async (req, res) => {
       ),
       userId
         ? sequelize.query(
-            "SELECT `_id`, `openid`, `phone`, `gender`, `createdAt`, `distributorStatus` FROM `users` WHERE `_id` = :id LIMIT 1",
+            "SELECT `_id`, `openid`, `phone`, `gender`, `createTime` AS `createdAt`, `updateTime` AS `updatedAt`, `distributorStatus` FROM `users` WHERE `_id` = :id LIMIT 1",
             { replacements: { id: userId }, type: QueryTypes.SELECT }
           )
         : Promise.resolve([]),
