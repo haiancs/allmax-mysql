@@ -15,7 +15,7 @@ const logger = morgan("tiny");
 
 const app = express();
 app.use(express.urlencoded({ extended: false }));
-app.use(express.json());
+app.use(express.json({ limit: process.env.API_BODY_LIMIT || "256kb" }));
 app.use(cors());
 app.use(logger);
 app.use("/api", ordersRouter);
