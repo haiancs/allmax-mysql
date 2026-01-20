@@ -1,5 +1,4 @@
 const express = require("express");
-const crypto = require("crypto");
 const { QueryTypes } = require("sequelize");
 const { checkConnection, sequelize } = require("../db");
 const { llpayOpenapiRequest } = require("../services/llpayOpenapiService");
@@ -9,6 +8,7 @@ const {
 } = require("../services/llpayService");
 const {
   safeTrim,
+  buildTxnSeqnoFromOrderId,
   safeNumber,
   formatDateTimeCN,
   pickClientIp,
@@ -35,13 +35,7 @@ router.post("/pay", async (req, res) => {
   if (!txnSeqno) {
     const orderIdRaw = req?.body?.orderId || req?.body?.order_id || req?.body?.id;
     const orderId = typeof orderIdRaw === "string" ? orderIdRaw.trim() : "";
-    if (orderId) {
-      const digest = crypto
-        .createHash("sha256")
-        .update(`llpay_v2:${orderId}`)
-        .digest("hex");
-      txnSeqno = digest.slice(0, 32);
-    }
+    txnSeqno = buildTxnSeqnoFromOrderId(orderId);
   }
   
   if (!txnSeqno) {

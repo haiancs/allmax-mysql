@@ -1,5 +1,14 @@
+const crypto = require("crypto");
+
 function safeTrim(v) {
   return v != null ? String(v).trim() : "";
+}
+
+function buildTxnSeqnoFromOrderId(orderId) {
+  const id = safeTrim(orderId);
+  if (!id) return "";
+  const digest = crypto.createHash("sha256").update(`llpay_v2:${id}`).digest("hex");
+  return digest.slice(0, 32);
 }
 
 function safeNumber(v, fallback) {
@@ -191,6 +200,7 @@ function getLLPayHttpStatus(result) {
 
 module.exports = {
   safeTrim,
+  buildTxnSeqnoFromOrderId,
   safeNumber,
   formatDateTimeCN,
   ensureTimestamp14,

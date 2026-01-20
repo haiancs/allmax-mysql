@@ -23,6 +23,7 @@ const shopRouter = require("./routes/shop");
 const shopSkuAttrRouter = require("./routes/shopSkuAttr");
 const shopCartRouter = require("./routes/shopCart");
 const llpayRouter = require("./routes/llpay");
+const llpaySecuredTxnRouter = require("./routes/llpaySecuredTxn");
 const cainiaoRouter = require("./routes/cainiao");
 
 const logger = morgan("tiny");
@@ -38,6 +39,7 @@ app.use("/api/shop", shopRouter);
 app.use("/api/shop", shopSkuAttrRouter);
 app.use("/api/shop", shopCartRouter);
 app.use("/api/llpay", llpayRouter);
+app.use("/api/llpay/accp/txn", llpaySecuredTxnRouter);
 app.use("/api/cainiao", cainiaoRouter);
 
 // 首页
