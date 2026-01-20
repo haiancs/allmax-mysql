@@ -1,3 +1,17 @@
+/**
+ * 菜鸟（Cainiao）调用入口与路由挂载点
+ *
+ * 统一入口是本文件创建的 Express 应用，并在这里把菜鸟相关路由挂载到：
+ * - /api/cainiao  -> routes/cainiao.js
+ *
+ * 菜鸟发货主链路（方式B默认）：
+ * - 前端/调用方  -> POST /api/cainiao/deliveryorder/create
+ * - routes/cainiao.js 调用 services/cainiaoDeliveryService.js 组装/校验报文并发起请求
+ * - utils/cainiaoClient.js 负责按菜鸟 LINK 网关协议签名并请求 https://(pre)link.cainiao.com/gateway/link.do
+ *
+ * 依赖：
+ * - db.js 提供 sequelize 与 checkConnection，用于数据库读订单/地址/支付等信息
+ */
 const path = require("path");
 const express = require("express");
 const cors = require("cors");

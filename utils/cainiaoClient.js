@@ -1,3 +1,6 @@
+// 菜鸟网关客户端封装
+// - requestCainiao：按菜鸟接口要求做签名（MD5+Base64 的 data_digest）并以 x-www-form-urlencoded 方式请求网关
+// - debug：仅返回脱敏后的请求信息（data_digest 会被 masked）
 const crypto = require("crypto");
 const axios = require("axios");
 const querystring = require("querystring");
@@ -218,4 +221,3 @@ async function requestCainiao(params = {}, options = {}) {
 module.exports = {
   requestCainiao,
 };
-
