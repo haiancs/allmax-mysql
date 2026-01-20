@@ -4,9 +4,47 @@
 // - overrides：对组装后的发货报文做最高优先级的字段覆盖（用于补齐/修正个别字段）
 const express = require("express");
 const { checkConnection, sequelize } = require("../db");
+const { requestCainiao } = require("../utils/cainiaoClient");
 const { createCainiaoDeliveryOrder } = require("../services/cainiaoDeliveryService");
 
 const router = express.Router();
+
+function asObject(v) {
+  return v && typeof v === "object" && !Array.isArray(v) ? v : null;
+}
+
+function asTrimmedString(v) {
+  if (typeof v === "string") return v.trim();
+  if (typeof v === "number" && Number.isFinite(v)) return String(v);
+  return "";
+}
+
+function getCainiaoCommonOptions(body) {
+  const traceId = asTrimmedString(body.traceId) || null;
+  const to_code = asTrimmedString(body.to_code) || null;
+  const debugRequest = body.debugRequest === true;
+  const timeoutMsRaw = body.timeoutMs;
+  const timeoutMs = Number.isFinite(Number(timeoutMsRaw)) ? Number(timeoutMsRaw) : undefined;
+  return { traceId, to_code, debugRequest, timeoutMs };
+}
+
+async function callCainiaoGateway({ msgType, logisticsInterface, common }) {
+  const result = await requestCainiao(
+    {
+      msg_type: msgType,
+      logistics_interface: logisticsInterface,
+      to_code: common.to_code || null,
+      traceId: common.traceId || null,
+    },
+    {
+      timeoutMs: typeof common.timeoutMs === "number" ? common.timeoutMs : undefined,
+      logRequest: common.debugRequest === true,
+      debug: common.debugRequest === true,
+    }
+  );
+
+  return result;
+}
 
 router.get("/status", async (req, res) => {
   res.send({
@@ -36,6 +74,7 @@ router.post("/deliveryorder/create", async (req, res) => {
 
   const traceId = typeof body.traceId === "string" ? body.traceId.trim() : "";
   const dryRun = body.dryRun === true;
+  const debugRequest = body.debugRequest === true;
   const timeoutMsRaw = body.timeoutMs;
   const timeoutMs = Number.isFinite(Number(timeoutMsRaw)) ? Number(timeoutMsRaw) : undefined;
 
@@ -62,6 +101,7 @@ router.post("/deliveryorder/create", async (req, res) => {
     traceId: traceId || null,
     timeoutMs,
     dryRun,
+    logRequest: debugRequest,
   });
 
   if (!result.ok) {
@@ -85,6 +125,206 @@ router.post("/deliveryorder/create", async (req, res) => {
     code: 0,
     data: dryRun ? { deliveryOrder: result.deliveryOrder, missingFields: [] } : result.data,
   });
+});
+
+router.post("/crossborder/logistics/detail-query", async (req, res) => {
+  const body = asObject(req.body) || {};
+  const common = getCainiaoCommonOptions(body);
+
+  const payload = asObject(body.logistics_interface) || asObject(body.logisticsInterface) || {};
+  const lgOrderCode = asTrimmedString(payload.lgOrderCode);
+  const userId = asTrimmedString(payload.userId);
+
+  if (!lgOrderCode) {
+    return res.status(400).send({ code: -1, message: "lgOrderCode 必须存在", data: null });
+  }
+
+  if (!userId) {
+    return res.status(400).send({ code: -1, message: "userId 必须存在", data: null });
+  }
+
+  const result = await callCainiaoGateway({
+    msgType: "CROSSBORDER_LOGISTICS_DETAIL_QUERY",
+    logisticsInterface: { ...payload, lgOrderCode, userId },
+    common,
+  });
+
+  if (!result?.success) {
+    return res.status(500).send({
+      code: -1,
+      message: result?.message || "菜鸟请求失败",
+      data: result || null,
+    });
+  }
+
+  return res.send({ code: 0, data: result });
+});
+
+router.post("/crossborder/sales/cancel", async (req, res) => {
+  const body = asObject(req.body) || {};
+  const common = getCainiaoCommonOptions(body);
+
+  const payload = asObject(body.logistics_interface) || asObject(body.logisticsInterface) || {};
+  const orderSource = asTrimmedString(payload.orderSource);
+  const lgOrderCode = asTrimmedString(payload.lgOrderCode);
+  const externalOrderId = asTrimmedString(payload.externalOrderId);
+  const userId = asTrimmedString(payload.userId);
+
+  if (!orderSource) {
+    return res.status(400).send({ code: -1, message: "orderSource 必须存在", data: null });
+  }
+
+  if (!lgOrderCode) {
+    return res.status(400).send({ code: -1, message: "lgOrderCode 必须存在", data: null });
+  }
+
+  if (!externalOrderId) {
+    return res.status(400).send({ code: -1, message: "externalOrderId 必须存在", data: null });
+  }
+
+  if (!userId) {
+    return res.status(400).send({ code: -1, message: "userId 必须存在", data: null });
+  }
+
+  const result = await callCainiaoGateway({
+    msgType: "CROSSBORDER_SALES_CANCEL",
+    logisticsInterface: { ...payload, orderSource, lgOrderCode, externalOrderId, userId },
+    common,
+  });
+
+  if (!result?.success) {
+    return res.status(500).send({
+      code: -1,
+      message: result?.message || "菜鸟请求失败",
+      data: result || null,
+    });
+  }
+
+  return res.send({ code: 0, data: result });
+});
+
+router.post("/global-sale/order/intercept-notify", async (req, res) => {
+  const body = asObject(req.body) || {};
+  const common = getCainiaoCommonOptions(body);
+
+  const payload = asObject(body.logistics_interface) || asObject(body.logisticsInterface) || {};
+  const mailNo = asTrimmedString(payload.mailNo);
+  const externalOrderCode = asTrimmedString(payload.externalOrderCode);
+  const lgOrderCode = asTrimmedString(payload.lgOrderCode);
+  const userId = asTrimmedString(payload.userId);
+
+  if (!userId) {
+    return res.status(400).send({ code: -1, message: "userId 必须存在", data: null });
+  }
+
+  if (!externalOrderCode && !lgOrderCode) {
+    return res.status(400).send({
+      code: -1,
+      message: "externalOrderCode 与 lgOrderCode 二选一必填",
+      data: null,
+    });
+  }
+
+  const result = await callCainiaoGateway({
+    msgType: "GLOBAL_SALE_ORDER_INTERCEPT_NOTIFY",
+    logisticsInterface: {
+      ...payload,
+      mailNo: mailNo || undefined,
+      externalOrderCode: externalOrderCode || undefined,
+      lgOrderCode: lgOrderCode || undefined,
+      userId,
+    },
+    common,
+  });
+
+  if (!result?.success) {
+    return res.status(500).send({
+      code: -1,
+      message: result?.message || "菜鸟请求失败",
+      data: result || null,
+    });
+  }
+
+  return res.send({ code: 0, data: result });
+});
+
+router.post("/global-sale/order/refund-notify", async (req, res) => {
+  const body = asObject(req.body) || {};
+  const common = getCainiaoCommonOptions(body);
+
+  const payload = asObject(body.logistics_interface) || asObject(body.logisticsInterface) || {};
+  const receiver = asObject(payload.receiver);
+  const sender = asObject(payload.sender);
+  const srcOrderCode = asTrimmedString(payload.srcOrderCode);
+  const userId = asTrimmedString(payload.userId);
+  const refundOrderId = asTrimmedString(payload.refundOrderId);
+  const mailNo = asTrimmedString(payload.mailNo);
+  const packageItems = Array.isArray(payload.packageItems) ? payload.packageItems : null;
+  const channelCode = asTrimmedString(payload.channelCode);
+  const storeCode = asTrimmedString(payload.storeCode);
+
+  if (!receiver) {
+    return res.status(400).send({ code: -1, message: "receiver 必须为对象", data: null });
+  }
+
+  if (!sender) {
+    return res.status(400).send({ code: -1, message: "sender 必须为对象", data: null });
+  }
+
+  if (!srcOrderCode) {
+    return res.status(400).send({ code: -1, message: "srcOrderCode 必须存在", data: null });
+  }
+
+  if (!userId) {
+    return res.status(400).send({ code: -1, message: "userId 必须存在", data: null });
+  }
+
+  if (!refundOrderId) {
+    return res.status(400).send({ code: -1, message: "refundOrderId 必须存在", data: null });
+  }
+
+  if (!mailNo) {
+    return res.status(400).send({ code: -1, message: "mailNo 必须存在", data: null });
+  }
+
+  if (!packageItems || packageItems.length === 0) {
+    return res.status(400).send({ code: -1, message: "packageItems 必须为非空数组", data: null });
+  }
+
+  if (!channelCode) {
+    return res.status(400).send({ code: -1, message: "channelCode 必须存在", data: null });
+  }
+
+  if (!storeCode) {
+    return res.status(400).send({ code: -1, message: "storeCode 必须存在", data: null });
+  }
+
+  const result = await callCainiaoGateway({
+    msgType: "GLOBAL_SALE_ORDER_REFUND_NOTIFY",
+    logisticsInterface: {
+      ...payload,
+      receiver,
+      sender,
+      srcOrderCode,
+      userId,
+      refundOrderId,
+      mailNo,
+      packageItems,
+      channelCode,
+      storeCode,
+    },
+    common,
+  });
+
+  if (!result?.success) {
+    return res.status(500).send({
+      code: -1,
+      message: result?.message || "菜鸟请求失败",
+      data: result || null,
+    });
+  }
+
+  return res.send({ code: 0, data: result });
 });
 
 module.exports = router;

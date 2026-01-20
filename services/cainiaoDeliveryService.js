@@ -471,7 +471,8 @@ async function buildDeliveryOrderFromDb({ sequelize, orderId, overrides }) {
       declareInfo,
       inventoryChannel,
       extItemId: skuId || undefined,
-      itemId: safeTrim(row?.cargoId) || "",
+      // itemId: safeTrim(row?.cargoId) || "",
+      itemId: "610240611644",
       itemName: safeTrim(row?.spuName) || undefined,
     };
   });
@@ -486,6 +487,7 @@ async function createCainiaoDeliveryOrder({
   traceId,
   timeoutMs,
   dryRun,
+  logRequest,
 }) {
   const normalizedMsgType = "GLOBAL_SALE_ORDER_NOTIFY";
 
@@ -529,10 +531,7 @@ async function createCainiaoDeliveryOrder({
     };
   }
 
-  const logisticsInterfacePayload =
-    normalizedMsgType === "GLOBAL_SALE_ORDER_NOTIFY"
-      ? { globalSaleOrder: orderPayload }
-      : orderPayload;
+  const logisticsInterfacePayload = orderPayload;
 
   const result = await requestCainiao(
     {
@@ -543,6 +542,7 @@ async function createCainiaoDeliveryOrder({
     },
     {
       timeoutMs: typeof timeoutMs === "number" ? timeoutMs : undefined,
+      logRequest: logRequest === true,
     }
   );
 

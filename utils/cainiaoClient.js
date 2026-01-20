@@ -36,6 +36,25 @@ function filterDebugHeaders(headers) {
   return result;
 }
 
+function isTruthyEnvValue(v) {
+  if (v == null) return false;
+  const s = String(v).trim().toLowerCase();
+  return s === "1" || s === "true" || s === "yes" || s === "y" || s === "on";
+}
+
+function maskCainiaoFormBody(formBody) {
+  const masked = { ...(formBody || {}) };
+  if (Object.prototype.hasOwnProperty.call(masked, "data_digest")) {
+    masked.data_digest = "[masked]";
+  }
+  return masked;
+}
+
+function maskCainiaoBodyString(bodyString) {
+  const s = String(bodyString || "");
+  return s.replace(/(^|&)data_digest=[^&]*/g, "$1data_digest=%5Bmasked%5D");
+}
+
 async function requestCainiao(params = {}, options = {}) {
   const msg_type = params && params.msg_type;
   const logisticsInterfaceParam = params && params.logistics_interface;
@@ -56,7 +75,8 @@ async function requestCainiao(params = {}, options = {}) {
   const baseUrl = String(baseUrlRaw).replace(/\/+$/, "");
   const timeoutMs = typeof options.timeoutMs === "number" ? options.timeoutMs : 15000;
   const debug = !!options.debug;
-
+  // const logRequest = !!options.logRequest || debug || isTruthyEnvValue(process.env.CAINIAO_LOG_REQUEST);
+  const logRequest = true;
   if (!logisticProviderId) {
     return {
       success: false,
@@ -124,6 +144,8 @@ async function requestCainiao(params = {}, options = {}) {
   };
 
   const bodyString = querystring.stringify(formBody);
+  const bodyStringMasked = maskCainiaoBodyString(bodyString);
+  const formBodyMasked = maskCainiaoFormBody(formBody);
 
   const axiosConfig = {
     method: "post",
@@ -134,6 +156,17 @@ async function requestCainiao(params = {}, options = {}) {
   };
 
   try {
+    if (logRequest) {
+      console.info("[cainiao] request", {
+        traceId,
+        method: axiosConfig.method,
+        url: axiosConfig.url,
+        timeout: axiosConfig.timeout,
+        headers: axiosConfig.headers,
+        formBody: formBodyMasked,
+        body: bodyStringMasked,
+      });
+    }
     const res = await axios(axiosConfig);
     let respData = res && res.data !== undefined ? res.data : null;
     if (typeof respData === "string") {
@@ -174,6 +207,8 @@ async function requestCainiao(params = {}, options = {}) {
       ? {
           url,
           headers: filterDebugHeaders(headers),
+          body: bodyStringMasked,
+          formBody: formBodyMasked,
           request: {
             msg_type,
             to_code,
@@ -183,6 +218,14 @@ async function requestCainiao(params = {}, options = {}) {
       : undefined;
 
     if (!bizSuccess) {
+      if (logRequest) {
+        console.warn("[cainiao] response business error", {
+          traceId,
+          url,
+          status: res && res.status,
+          data: respData,
+        });
+      }
       return {
         success: false,
         code: bizCode,
@@ -207,6 +250,15 @@ async function requestCainiao(params = {}, options = {}) {
     const code = status ? "HTTP_" + String(status) : "NETWORK_ERROR";
     const message = error && error.message ? error.message : "request failed";
     const debugInfo = debug ? { url, headers: filterDebugHeaders(headers) } : undefined;
+    if (logRequest) {
+      console.error("[cainiao] response http/network error", {
+        traceId,
+        url,
+        status,
+        message,
+        data: respData || null,
+      });
+    }
     return {
       success: false,
       code,
