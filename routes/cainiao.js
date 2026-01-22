@@ -21,11 +21,10 @@ function asTrimmedString(v) {
 
 function getCainiaoCommonOptions(body) {
   const traceId = asTrimmedString(body.traceId) || null;
-  const to_code = asTrimmedString(body.to_code) || null;
   const debugRequest = body.debugRequest === true;
   const timeoutMsRaw = body.timeoutMs;
   const timeoutMs = Number.isFinite(Number(timeoutMsRaw)) ? Number(timeoutMsRaw) : undefined;
-  return { traceId, to_code, debugRequest, timeoutMs };
+  return { traceId, debugRequest, timeoutMs };
 }
 
 async function callCainiaoGateway({ msgType, logisticsInterface, common }) {
@@ -33,7 +32,6 @@ async function callCainiaoGateway({ msgType, logisticsInterface, common }) {
     {
       msg_type: msgType,
       logistics_interface: logisticsInterface,
-      to_code: common.to_code || null,
       traceId: common.traceId || null,
     },
     {

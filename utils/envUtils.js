@@ -1,7 +1,7 @@
 function safeTrim(v) {
   return v != null ? String(v).trim() : "";
 }
-
+// 尝试将字符串转换为整数，失败返回 null
 function coerceIntOrNull(v) {
   if (typeof v === "number" && Number.isFinite(v)) return Math.trunc(v);
   if (typeof v === "string" && v.trim()) {

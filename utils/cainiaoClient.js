@@ -58,7 +58,6 @@ function maskCainiaoBodyString(bodyString) {
 async function requestCainiao(params = {}, options = {}) {
   const msg_type = params && params.msg_type;
   const logisticsInterfaceParam = params && params.logistics_interface;
-  const to_code = params && params.to_code ? params.to_code : null;
   const traceId = params && params.traceId ? params.traceId : null;
 
   const logisticProviderIdRaw =
@@ -134,10 +133,6 @@ async function requestCainiao(params = {}, options = {}) {
     logistics_interface: logisticsInterface,
   };
 
-  if (to_code) {
-    formBody.to_code = to_code;
-  }
-
   const url = baseUrl;
   const headers = {
     "Content-Type": "application/x-www-form-urlencoded",
@@ -167,6 +162,8 @@ async function requestCainiao(params = {}, options = {}) {
         body: bodyStringMasked,
       });
     }
+    console.log('haiancs', axiosConfig)
+
     const res = await axios(axiosConfig);
     let respData = res && res.data !== undefined ? res.data : null;
     if (typeof respData === "string") {
@@ -211,7 +208,6 @@ async function requestCainiao(params = {}, options = {}) {
           formBody: formBodyMasked,
           request: {
             msg_type,
-            to_code,
             logistics_interface_length: logisticsInterface.length,
           },
         }

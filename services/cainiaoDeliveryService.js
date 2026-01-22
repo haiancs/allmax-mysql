@@ -4,21 +4,9 @@
 // - createCainiaoDeliveryOrder：组装/校验通过后调用 utils/cainiaoClient.js 发送到菜鸟网关
 const { QueryTypes } = require("sequelize");
 const { requestCainiao } = require("../utils/cainiaoClient");
-const { fillBondedTaxAndDeclareInfo } = require("../utils/cainiaoBondedTax");
 const { safeTrim, coerceIntOrNull, toFenFromYuanOrFen } = require("../utils/envUtils");
 
-function tryParseJsonObject(v) {
-  if (!v) return null;
-  if (typeof v === "object") return v;
-  if (typeof v !== "string") return null;
-  try {
-    const parsed = JSON.parse(v);
-    return parsed && typeof parsed === "object" ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
+// 格式化日期时间为中国时间（东八区）的文本表示
 function formatDateTimeCNText(date) {
   const ms = date instanceof Date ? date.getTime() : Date.now();
   const cnMs = ms + 8 * 60 * 60 * 1000;
@@ -32,6 +20,7 @@ function formatDateTimeCNText(date) {
   return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
 }
 
+// 解析 14 位时间戳字符串为毫秒级时间戳（东八区）
 function parseTimestamp14ToMs(ts14) {
   const s = safeTrim(ts14);
   if (!/^\d{14}$/.test(s)) return null;
@@ -55,11 +44,13 @@ function parseTimestamp14ToMs(ts14) {
   return Number.isNaN(utcMs) ? null : utcMs;
 }
 
+// 确保接收人必填字段非空，否则使用默认值
 function ensureReceiverRequiredText(v, fallback) {
   const s = safeTrim(v);
   return s ? s : fallback;
 }
 
+// 解析接收人地址字符串为省份、城市、区县、详细地址
 function parseReceiverAddressParts(address) {
   const raw = safeTrim(address);
   if (!raw) return null;
@@ -123,6 +114,7 @@ function parseReceiverAddressParts(address) {
   };
 }
 
+// 深度合并对象（不修改原对象）
 function mergeDeep(base, patch) {
   if (!patch || typeof patch !== "object" || Array.isArray(patch)) return base;
   const out = Object.assign({}, base && typeof base === "object" ? base : {});
@@ -158,12 +150,8 @@ function getCainiaoEnv() {
     businessUnitId: opt("CAINIAO_BUSINESS_UNIT_ID"),
     storeCode: req("CAINIAO_STORE_CODE"),
     orderType: req("CAINIAO_ORDER_TYPE"),
-    defaultInventoryChannel: req("CAINIAO_DEFAULT_INVENTORY_CHANNEL"),
-
-    externalShopId: opt("CAINIAO_EXTERNAL_SHOP_ID"),
     externalShopName: opt("CAINIAO_EXTERNAL_SHOP_NAME"),
     saleMode: opt("CAINIAO_SALE_MODE"),
-
     receiverCountry: req("CAINIAO_RECEIVER_COUNTRY"),
     currency: req("CAINIAO_CURRENCY"),
     nationality: req("CAINIAO_NATIONALITY"),
@@ -178,6 +166,17 @@ function getCainiaoEnv() {
   return cfg;
 }
 
+const VAT_INCLUSIVE_FACTOR_NUM = 1091;
+const VAT_INCLUSIVE_FACTOR_DEN = 1000;
+function splitVatInclusiveFen(grossFen) {
+  const gross = Math.max(0, coerceIntOrNull(grossFen) || 0);
+  let net = Math.round((gross * VAT_INCLUSIVE_FACTOR_DEN) / VAT_INCLUSIVE_FACTOR_NUM);
+  if (net < 0) net = 0;
+  if (net > gross) net = gross;
+  const vat = gross - net;
+  return { netFen: net, vatFen: vat };
+}
+// 校验菜鸟订单 已测试
 function validateDeliveryOrder(order) {
   const missing = [];
   const o = order && typeof order === "object" ? order : {};
@@ -186,11 +185,28 @@ function validateDeliveryOrder(order) {
   if (!safeTrim(o.orderType)) missing.push("orderType");
   if (!safeTrim(o.storeCode)) missing.push("storeCode");
   if (!safeTrim(o.externalOrderCode)) missing.push("externalOrderCode");
+  if (!safeTrim(o.externalShopName)) missing.push("externalShopName");
+  if (!safeTrim(o.saleMode)) missing.push("saleMode");
+  if (!safeTrim(o.orderSource)) missing.push("orderSource");
+  if (!safeTrim(o.orderCreateTime)) missing.push("orderCreateTime");
+  if (!safeTrim(o.orderPayTime)) missing.push("orderPayTime");
 
   const receiver = o.receiverInfo && typeof o.receiverInfo === "object" ? o.receiverInfo : null;
   const receiverRequired = ["country", "province", "city", "district", "address", "name", "contactNo"];
   for (const f of receiverRequired) {
     if (!safeTrim(receiver?.[f])) missing.push(`receiverInfo.${f}`);
+  }
+
+  const sender = o.senderInfo && typeof o.senderInfo === "object" ? o.senderInfo : null;
+  const senderRequired = ["country", "province", "district", "address", "name", "contactNo"];
+  for (const f of senderRequired) {
+    if (!safeTrim(sender?.[f])) missing.push(`senderInfo.${f}`);
+  }
+
+  const refunderInfo = o.refunderInfo && typeof o.refunderInfo === "object" ? o.refunderInfo : null;
+  const refundRequired = ["country", "province", "district", "address", "name", "contactNo"];
+  for (const f of refundRequired) {
+    if (!safeTrim(refunderInfo?.[f])) missing.push(`refunderInfo.${f}`);
   }
 
   const itemList = Array.isArray(o.orderItemList) ? o.orderItemList : [];
@@ -202,7 +218,6 @@ function validateDeliveryOrder(order) {
       if (!safeTrim(it.itemId)) missing.push(`orderItemList[${i}].itemId`);
       const qty = coerceIntOrNull(it.itemQuantity);
       if (qty == null || qty <= 0) missing.push(`orderItemList[${i}].itemQuantity`);
-      if (!safeTrim(it.inventoryChannel)) missing.push(`orderItemList[${i}].inventoryChannel`);
       const di = it.declareInfo && typeof it.declareInfo === "object" ? it.declareInfo : null;
       const declareRequired = [
         "itemTotalPrice",
@@ -243,11 +258,9 @@ function validateDeliveryOrder(order) {
 
   const customs = o.customsDeclareInfo && typeof o.customsDeclareInfo === "object" ? o.customsDeclareInfo : null;
   const customsRequired = [
-    "buyerIDType",
     "payOrderId",
     "buyerName",
     "buyerPlatformId",
-    "nationality",
     "buyerIDNo",
     "contactNo",
     "payChannel",
@@ -259,6 +272,7 @@ function validateDeliveryOrder(order) {
   return missing;
 }
 
+// 安全查询数据库
 async function safeQuery(sequelize, sql, { replacements } = {}) {
   try {
     const rows = await sequelize.query(sql, {
@@ -319,9 +333,23 @@ async function buildDeliveryOrderFromDb({ sequelize, orderId, overrides }) {
     };
   }
 
+  const orderUserId = safeTrim(orderRow?.user);
+  let isDistributorUser = false;
+  if (orderUserId) {
+    const userRes = await safeQuery(
+      sequelize,
+      "SELECT `distributorStatus` FROM `users` WHERE `_id` = :id LIMIT 1",
+      { replacements: { id: orderUserId } }
+    );
+    if (userRes.ok) {
+      isDistributorUser =
+        safeTrim(userRes.rows[0]?.distributorStatus).toLowerCase() === "approved";
+    }
+  }
+
   const itemRowsRes = await safeQuery(
     sequelize,
-    "SELECT oi.`_id` AS `orderItemId`, oi.`sku` AS `skuId`, oi.`count` AS `count`, s.`price` AS `price`, s.`cargo_id` AS `cargoId`, sp.`name` AS `spuName` FROM `shop_order_item` oi INNER JOIN `shop_sku` s ON s.`_id` = oi.`sku` LEFT JOIN `shop_spu` sp ON sp.`_id` = s.`spu` WHERE oi.`order` = :orderId ORDER BY oi.`_id` ASC",
+    "SELECT oi.`_id` AS `orderItemId`, oi.`sku` AS `skuId`, oi.`count` AS `count`, oi.`distribution_record` AS `distributionRecordId`, s.`price` AS `price`, s.`wholesale_price` AS `wholesalePrice`, s.`cargo_id` AS `cargoId`, sp.`name` AS `spuName`, dr.`share_price` AS `sharePrice` FROM `shop_order_item` oi INNER JOIN `shop_sku` s ON s.`_id` = oi.`sku` LEFT JOIN `shop_spu` sp ON sp.`_id` = s.`spu` LEFT JOIN `shop_distribution_record` dr ON dr.`_id` = oi.`distribution_record` WHERE oi.`order` = :orderId ORDER BY oi.`_id` ASC",
     { replacements: { orderId: id } }
   );
   if (!itemRowsRes.ok) {
@@ -335,20 +363,12 @@ async function buildDeliveryOrderFromDb({ sequelize, orderId, overrides }) {
 
   const llpayRes = await safeQuery(
     sequelize,
-    "SELECT `txnSeqno`, `platform_txno` AS `platformTxno`, `txnTime`, `status`, `amountFen` FROM `llpay_v2` WHERE `orderId` = :orderId LIMIT 1",
+    "SELECT `txnSeqno`, `platform_txno` AS `platformTxno`, `txnTime`, `status`, `amountFen`, `createdAt`, `updatedAt` FROM `llpay_v2` WHERE `orderId` = :orderId LIMIT 1",
     { replacements: { orderId: id } }
   );
   const llpay = llpayRes.ok ? llpayRes.rows[0] || null : null;
-
-  const bondedRes = await safeQuery(
-    sequelize,
-    "SELECT * FROM `bonded_warehouse_orders` WHERE `orderId` = :orderId OR `shopOrderId` = :orderId ORDER BY `createdAt` DESC LIMIT 1",
-    { replacements: { orderId: id } }
-  );
-  const bonded = bondedRes.ok ? bondedRes.rows[0] || null : null;
-
-  const bondedRequestData = bonded ? tryParseJsonObject(bonded.requestData) : null;
-  const bondedFromRequest = bondedRequestData && typeof bondedRequestData === "object" ? bondedRequestData : null;
+  const payTimeMs = llpay?.txnTime ? parseTimestamp14ToMs(llpay.txnTime) : null;
+  const payTimeText = payTimeMs != null ? formatDateTimeCNText(new Date(payTimeMs)) : "";
 
   const deliveryInfoId = safeTrim(orderRow?.delivery_info);
   let deliveryInfo = null;
@@ -363,23 +383,19 @@ async function buildDeliveryOrderFromDb({ sequelize, orderId, overrides }) {
     }
   }
 
-  const defaultInventoryChannel = env.defaultInventoryChannel;
   const orderType = env.orderType;
 
-  let payTimeText;
-  if (llpay?.txnTime) {
-    const ts14 = safeTrim(llpay.txnTime);
-    const ms = parseTimestamp14ToMs(ts14);
-    if (ms != null) {
-      payTimeText = formatDateTimeCNText(new Date(ms));
-    } else {
-      const d = new Date(ts14);
-      if (!Number.isNaN(d.getTime())) payTimeText = formatDateTimeCNText(d);
-    }
-  }
-
-  const rawReceiverAddress = safeTrim(deliveryInfo?.address) || safeTrim(bonded?.receiverAddress) || "";
+  const rawReceiverAddress = safeTrim(deliveryInfo?.address) || "";
   const receiverParts = parseReceiverAddressParts(rawReceiverAddress);
+
+  const itemRows = itemRowsRes.rows || [];
+  const totalQty = itemRows.reduce(
+    (sum, it) => sum + (coerceIntOrNull(it?.count) || 0),
+    0
+  );
+  const totalPriceFen = toFenFromYuanOrFen(orderRow?.totalPrice) || 0;
+  const avgUnitPriceFen =
+    totalQty > 0 ? Math.round(totalPriceFen / totalQty) : totalPriceFen;
 
   const baseDeliveryOrder = {
     ownerUserId: env.ownerUserId,
@@ -387,27 +403,45 @@ async function buildDeliveryOrderFromDb({ sequelize, orderId, overrides }) {
     orderType,
     storeCode: env.storeCode,
     externalOrderCode: id,
-    externalTradeCode: undefined,
-    externalShopId: env.externalShopId,
     externalShopName: env.externalShopName,
-    // channel_shop: safeTrim(env.externalShopId) || safeTrim(env.storeCode) || id,
-    // channelShop: safeTrim(env.externalShopId) || safeTrim(env.storeCode) || id,
     orderCreateTime: formatDateTimeCNText(orderRow?.createdAt ? new Date(orderRow.createdAt) : new Date()),
-    orderPayTime: payTimeText || undefined,
+    orderPayTime:
+      payTimeText ||
+      formatDateTimeCNText(
+        llpay?.updatedAt ? new Date(llpay.updatedAt) : new Date()
+      ),
     saleMode: env.saleMode,
-    buyerRemark: undefined,
-    sellerRemark: undefined,
     receiverInfo: {
       country: env.receiverCountry,
-      province: safeTrim(bonded?.receiverProvince) || safeTrim(receiverParts?.province) || "",
-      city: safeTrim(bonded?.receiverCity) || safeTrim(receiverParts?.city) || "",
-      district: safeTrim(bonded?.receiverDistrict) || safeTrim(receiverParts?.district) || "",
+      province: safeTrim(receiverParts?.province) || "",
+      city: safeTrim(receiverParts?.city) || "/",
+      district: safeTrim(receiverParts?.district) || "/",
       town: safeTrim(deliveryInfo?.town) || undefined,
       address: rawReceiverAddress,
-      name: safeTrim(deliveryInfo?.name) || safeTrim(bonded?.receiverName) || "",
-      contactNo: safeTrim(deliveryInfo?.phone) || safeTrim(bonded?.receiverPhone) || "",
+      name: safeTrim(deliveryInfo?.name) || "",
+      contactNo: safeTrim(deliveryInfo?.phone) || "",
+    },
+    senderInfo: {
+        "country": "CN",
+        "province": "浙江省",
+        "city": "宁波市",
+        "district": "北仑区",
+        "address": "大碶街道保税南区东环路16号考拉园区",
+        "name": "菜鸟宁波北仑专用保税中心仓A1691",
+        "contactNo": "11111111111"
+    },
+    refunderInfo: {
+        "country": "CN",
+        "province": "江苏",
+        "city": "海安市",
+        "district": "/",
+        "town": "城东镇",
+        "address": "西场街道人民路嘉德超市对面移动营业厅代收",
+        "name": "奥迈格司",
+        "contactNo": "15250665899"
     },
     orderItemList: [],
+    orderSource: "1724",
     orderAmountInfo: {
       totalTax: 0,
       insurance: 0,
@@ -421,61 +455,89 @@ async function buildDeliveryOrderFromDb({ sequelize, orderId, overrides }) {
       customsTax: 0,
     },
     customsDeclareInfo: {
-      buyerIDType: "1",
       payOrderId: safeTrim(llpay?.platformTxno) || safeTrim(llpay?.txnSeqno) || "",
-      gender: undefined,
-      buyerName: safeTrim(deliveryInfo?.name) || safeTrim(bonded?.receiverName) || "",
+      buyerName: safeTrim(deliveryInfo?.name) || "",
       buyerPlatformId: safeTrim(orderRow?.user) || "",
-      nationality: env.nationality,
       payChannel: env.payChannel,
-      buyerIDNo: safeTrim(deliveryInfo?.idCard) || safeTrim(bonded?.receiverIdCard) || "",
-      contactNo: safeTrim(deliveryInfo?.phone) || safeTrim(bonded?.receiverPhone) || "",
+      buyerIDNo: safeTrim(deliveryInfo?.idCard) || "",
+      contactNo: safeTrim(deliveryInfo?.phone) || "",
     },
   };
 
-  const normalizedOverrides = overrides && typeof overrides === "object" ? overrides : {};
-  const merged = mergeDeep(mergeDeep(baseDeliveryOrder, bondedFromRequest), normalizedOverrides);
-
-  merged.receiverInfo = merged.receiverInfo && typeof merged.receiverInfo === "object" ? merged.receiverInfo : {};
-  merged.receiverInfo.province = ensureReceiverRequiredText(merged.receiverInfo.province, "/");
-  merged.receiverInfo.city = ensureReceiverRequiredText(merged.receiverInfo.city, "/");
-  merged.receiverInfo.district = ensureReceiverRequiredText(merged.receiverInfo.district, "/");
-
-  const totalFen = toFenFromYuanOrFen(orderRow?.totalPrice);
-  const actualPayment =
-    coerceIntOrNull(merged?.orderAmountInfo?.actualPayment) ??
-    (totalFen != null ? totalFen : 0);
-  merged.orderAmountInfo.actualPayment = actualPayment;
-  if (coerceIntOrNull(merged?.orderAmountInfo?.dutiablePrice) == null) {
-    merged.orderAmountInfo.dutiablePrice = actualPayment;
-  }
-
-  const itemRows = itemRowsRes.rows || [];
-  merged.orderItemList = itemRows.map((row) => {
+  baseDeliveryOrder.orderItemList = itemRows.map((row) => {
     const skuId = safeTrim(row?.skuId);
-    const inventoryChannel = defaultInventoryChannel;
     const quantity = coerceIntOrNull(row?.count) || 0;
-    const unitPriceFen = toFenFromYuanOrFen(row?.price) || 0;
+    const sharePriceFen = toFenFromYuanOrFen(row?.sharePrice);
+    const wholesalePriceFen = toFenFromYuanOrFen(row?.wholesalePrice);
+    const rawPriceFen = toFenFromYuanOrFen(row?.price);
+    const unitPriceFen =
+      sharePriceFen != null && sharePriceFen > 0
+        ? sharePriceFen
+        : isDistributorUser && wholesalePriceFen != null && wholesalePriceFen > 0
+          ? wholesalePriceFen
+          : rawPriceFen != null && rawPriceFen > 0
+            ? rawPriceFen
+            : avgUnitPriceFen > 0
+              ? avgUnitPriceFen
+              : 0;
     const lineTotalFen = unitPriceFen * quantity;
+    const { netFen: itemTotalPrice, vatFen: vat } = splitVatInclusiveFen(lineTotalFen);
     const declareInfo = {
-      itemTotalPrice: lineTotalFen,
-      vat: 0,
+      itemTotalPrice,
+      vat,
       customsTax: 0,
-      totalTax: 0,
+      totalTax: vat,
       consumptionTax: 0,
-      itemTotalActualPrice: lineTotalFen,
+      itemTotalActualPrice: itemTotalPrice,
     };
 
     return {
       itemQuantity: quantity,
       declareInfo,
-      inventoryChannel,
       extItemId: skuId || undefined,
       // itemId: safeTrim(row?.cargoId) || "",
       itemId: "610240611644",
       itemName: safeTrim(row?.spuName) || undefined,
     };
   });
+
+  const normalizedOverrides = overrides && typeof overrides === "object" ? overrides : {};
+  const merged = mergeDeep(baseDeliveryOrder, normalizedOverrides);
+
+  merged.receiverInfo = merged.receiverInfo && typeof merged.receiverInfo === "object" ? merged.receiverInfo : {};
+  merged.receiverInfo.province = ensureReceiverRequiredText(merged.receiverInfo.province, "/");
+  merged.receiverInfo.city = ensureReceiverRequiredText(merged.receiverInfo.city, "/");
+  merged.receiverInfo.district = ensureReceiverRequiredText(merged.receiverInfo.district, "/");
+
+  merged.orderAmountInfo =
+    merged.orderAmountInfo && typeof merged.orderAmountInfo === "object" ? merged.orderAmountInfo : {};
+  const mergedItems = Array.isArray(merged.orderItemList) ? merged.orderItemList : [];
+  let goodsTotalPriceFen = 0;
+  let vatFen = 0;
+  for (let i = 0; i < mergedItems.length; i++) {
+    const it = mergedItems[i] && typeof mergedItems[i] === "object" ? mergedItems[i] : {};
+    const di = it.declareInfo && typeof it.declareInfo === "object" ? it.declareInfo : {};
+    goodsTotalPriceFen += coerceIntOrNull(di.itemTotalPrice) || 0;
+    vatFen += coerceIntOrNull(di.vat) || 0;
+  }
+  const dutiablePriceFen = goodsTotalPriceFen;
+  const customsTaxFen = 0;
+  const consumptionTaxFen = 0;
+  const totalTaxFen = customsTaxFen + consumptionTaxFen + vatFen;
+
+  const totalFenFromOrder = toFenFromYuanOrFen(orderRow?.totalPrice);
+  const actualPaymentFen = totalFenFromOrder != null ? totalFenFromOrder : 0;
+
+  merged.orderAmountInfo.dutiablePrice = dutiablePriceFen;
+  merged.orderAmountInfo.customsTax = customsTaxFen;
+  merged.orderAmountInfo.consumptionTax = consumptionTaxFen;
+  merged.orderAmountInfo.vat = vatFen;
+  merged.orderAmountInfo.totalTax = totalTaxFen;
+  merged.orderAmountInfo.insurance = 0;
+  merged.orderAmountInfo.coupon = 0;
+  merged.orderAmountInfo.postFee = 0;
+  merged.orderAmountInfo.actualPayment = actualPaymentFen;
+  merged.orderAmountInfo.currency = "CNY";
 
   return { ok: true, code: "OK", error: null, deliveryOrder: merged };
 }
@@ -537,7 +599,6 @@ async function createCainiaoDeliveryOrder({
     {
       msg_type: normalizedMsgType,
       logistics_interface: logisticsInterfacePayload,
-      to_code: normalizedMsgType,
       traceId: safeTrim(traceId) || null,
     },
     {
