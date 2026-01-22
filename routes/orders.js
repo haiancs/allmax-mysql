@@ -4,6 +4,202 @@ const { checkConnection, sequelize } = require("../db");
 
 const router = express.Router();
 
+async function handleGetOrderDetail(req, res) {
+  if (!checkConnection()) {
+    return res.status(503).send({
+      code: -1,
+      message: "数据库未连接，请检查配置",
+      data: null,
+    });
+  }
+
+  const orderIdRaw =
+    typeof req?.query?.orderId === "string"
+      ? req.query.orderId
+      : typeof req?.body?.orderId === "string"
+        ? req.body.orderId
+        : "";
+  const orderId = orderIdRaw.trim();
+
+  if (!orderId) {
+    return res.status(400).send({
+      code: -1,
+      message: "orderId 必须存在",
+      data: null,
+    });
+  }
+
+  if (orderId.length > 64) {
+    return res.status(400).send({
+      code: -1,
+      message: "orderId 长度不能超过 64",
+      data: null,
+    });
+  }
+
+  try {
+    const itemQuerySql = `SELECT
+        oi.\`_id\` AS \`orderItemId\`,
+        oi.\`sku\` AS \`skuId\`,
+        oi.\`count\` AS \`count\`,
+        oi.\`distribution_record\` AS \`distributionRecordId\`,
+        s.\`price\` AS \`price\`,
+        s.\`wholesale_price\` AS \`wholesalePrice\`,
+        s.\`image\` AS \`image\`,
+        s.\`spu\` AS \`spuId\`,
+        sp.\`name\` AS \`spuName\`,
+        dr.\`share_price\` AS \`sharePrice\`
+      FROM \`shop_order_item\` oi
+      INNER JOIN \`shop_sku\` s ON s.\`_id\` = oi.\`sku\`
+      LEFT JOIN \`shop_spu\` sp ON sp.\`_id\` = s.\`spu\`
+      LEFT JOIN \`shop_distribution_record\` dr ON dr.\`_id\` = oi.\`distribution_record\`
+      WHERE oi.\`order\` = :orderId
+      ORDER BY oi.\`_id\` ASC`;
+
+    const [orderRows, itemRows] = await Promise.all([
+      sequelize.query(
+        "SELECT `_id`, `status`, `totalPrice`, `delivery_info`, `createdAt` FROM `shop_order` WHERE `_id` = :orderId LIMIT 1",
+        { replacements: { orderId }, type: QueryTypes.SELECT }
+      ),
+      sequelize.query(itemQuerySql, {
+        replacements: { orderId },
+        type: QueryTypes.SELECT,
+      }),
+    ]);
+
+    const orderRow = orderRows[0] || null;
+    if (!orderRow) {
+      return res.status(404).send({
+        code: -1,
+        message: "订单不存在",
+        data: null,
+      });
+    }
+
+    const deliveryInfoId =
+      orderRow?.delivery_info != null ? String(orderRow.delivery_info).trim() : "";
+    const deliveryInfoRows = deliveryInfoId
+      ? await sequelize.query(
+          "SELECT `_id`, `name`, `phone`, `address` FROM `shop_delivery_info` WHERE `_id` = :id LIMIT 1",
+          { replacements: { id: deliveryInfoId }, type: QueryTypes.SELECT }
+        )
+      : [];
+    const deliveryInfoRow = deliveryInfoRows[0] || null;
+
+    const orderItemsRaw = itemRows || [];
+    const skuIds = Array.from(
+      new Set(
+        orderItemsRaw
+          .map((r) => (r?.skuId != null ? String(r.skuId).trim() : ""))
+          .filter(Boolean)
+      )
+    );
+
+    const attrValuesBySkuId = new Map();
+    if (skuIds.length) {
+      const attrRows = await sequelize.query(
+        `SELECT
+          m.\`leftRecordId\` AS \`skuId\`,
+          av.\`_id\` AS \`attrValueId\`,
+          av.\`value\` AS \`value\`
+        FROM \`mid_4RKieAhGh\` m
+        INNER JOIN \`shop_attr_value\` av ON av.\`_id\` = m.\`rightRecordId\`
+        WHERE m.\`leftRecordId\` IN (:skuIds)
+        ORDER BY m.\`leftRecordId\` ASC, av.\`_id\` ASC`,
+        { replacements: { skuIds }, type: QueryTypes.SELECT }
+      );
+
+      for (const row of attrRows || []) {
+        const skuId = row?.skuId != null ? String(row.skuId).trim() : "";
+        const attrValueId =
+          row?.attrValueId != null ? String(row.attrValueId).trim() : "";
+        if (!skuId || !attrValueId) continue;
+
+        const list = attrValuesBySkuId.get(skuId) || [];
+        list.push({
+          _id: attrValueId,
+          value: row?.value != null ? row.value : null,
+        });
+        attrValuesBySkuId.set(skuId, list);
+      }
+    }
+
+    const orderItems = orderItemsRaw.map((row) => {
+      const skuId = row?.skuId != null ? String(row.skuId).trim() : "";
+      const distributionRecordId =
+        row?.distributionRecordId != null
+          ? String(row.distributionRecordId).trim()
+          : "";
+      const sharePrice =
+        row?.sharePrice != null && row.sharePrice !== ""
+          ? Number(row.sharePrice)
+          : null;
+
+      const spuId = row?.spuId != null ? String(row.spuId).trim() : "";
+      const spuName = row?.spuName != null ? String(row.spuName) : null;
+
+      return {
+        _id: row?.orderItemId != null ? String(row.orderItemId) : "",
+        skuId,
+        count: Number(row?.count || 0),
+        sku: skuId
+          ? {
+              _id: skuId,
+              image: row?.image != null ? String(row.image) : null,
+              price: row?.price != null ? Number(row.price) : null,
+              wholesale_price:
+                row?.wholesalePrice != null ? Number(row.wholesalePrice) : null,
+              attr_value: attrValuesBySkuId.get(skuId) || [],
+              spu: spuId
+                ? {
+                    _id: spuId,
+                    name: spuName,
+                  }
+                : null,
+            }
+          : null,
+        distribution_record: distributionRecordId
+          ? {
+              _id: distributionRecordId,
+              share_price: sharePrice,
+            }
+          : null,
+      };
+    });
+
+    const orderItemVOs = orderItemsRaw.map((row) => ({
+      spuId: row?.spuId != null ? String(row.spuId).trim() : "",
+    }));
+
+    const order = {
+      _id: orderRow?._id != null ? String(orderRow._id) : "",
+      orderNo: orderRow?._id != null ? String(orderRow._id) : "",
+      status: orderRow?.status != null ? String(orderRow.status) : null,
+      totalPrice: orderRow?.totalPrice != null ? Number(orderRow.totalPrice) : null,
+      createdAt: orderRow?.createdAt != null ? orderRow.createdAt : null,
+      delivery_info: deliveryInfoRow
+        ? {
+            _id: deliveryInfoRow?._id != null ? String(deliveryInfoRow._id) : "",
+            name: deliveryInfoRow?.name != null ? String(deliveryInfoRow.name) : null,
+            phone: deliveryInfoRow?.phone != null ? String(deliveryInfoRow.phone) : null,
+            address:
+              deliveryInfoRow?.address != null ? String(deliveryInfoRow.address) : null,
+          }
+        : null,
+      orderItems,
+      orderItemVOs,
+    };
+
+    return res.send({ code: 0, data: { order } });
+  } catch (error) {
+    return res.status(500).send({
+      code: -1,
+      message: error?.message || "查询失败",
+      data: null,
+    });
+  }
+}
+
 // 获取订单列表
 router.post("/orders", async (req, res) => {
   if (!checkConnection()) {
@@ -240,5 +436,8 @@ router.post("/orders", async (req, res) => {
     });
   }
 });
+
+router.get("/order/detail", handleGetOrderDetail);
+router.post("/order/detail", handleGetOrderDetail);
 
 module.exports = router;
