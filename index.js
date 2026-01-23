@@ -23,7 +23,7 @@ const shopRouter = require("./routes/shop");
 const shopSkuAttrRouter = require("./routes/shopSkuAttr");
 const shopCartRouter = require("./routes/shopCart");
 const llpayRouter = require("./routes/llpay");
-const llpaySecuredTxnRouter = require("./routes/llpaySecuredTxn");
+const llpaySecuredTxnRouter = require("./routes/llpay/securedTxnRoutes");
 const cainiaoRouter = require("./routes/cainiao");
 
 const logger = morgan("tiny");

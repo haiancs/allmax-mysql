@@ -17,6 +17,12 @@ const {
   resolvePayParamsExpireTimeMs,
   getLLPayHttpStatus,
 } = require("../utils/llpayRouteUtils");
+const {
+  divideableAmtQuery,
+} = require("../integrations/llpay/domains/divide/divideableAmtQuery");
+const {
+  divideBillQuery,
+} = require("../integrations/llpay/domains/divide/divideBillQuery");
 
 const router = express.Router();
 
@@ -426,7 +432,7 @@ router.post("/pay", async (req, res) => {
 
     // Use helper with extra fields
     await updateLLPayStatus(txnSeqno, "CREATED", {
-        platformTxno: platformTxno || null,
+        platform_txno: platformTxno || null,
         txnTime,
         expireTime: expireTimeToStore,
         payParams: payParamsToStore,
@@ -443,6 +449,18 @@ router.post("/pay", async (req, res) => {
       data: null,
     });
   }
+});
+
+router.post("/divideable-amt-query", async (req, res) => {
+  const result = await divideableAmtQuery(req.body);
+  if (!result.ok) return res.status(result.httpStatus).send(result.body);
+  return res.send(result.body);
+});
+
+router.post("/divide-bill-query", async (req, res) => {
+  const result = await divideBillQuery(req.body);
+  if (!result.ok) return res.status(result.httpStatus).send(result.body);
+  return res.send(result.body);
 });
 
 router.post("/openapi", async (req, res) => {

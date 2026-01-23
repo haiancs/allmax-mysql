@@ -61,7 +61,6 @@ async function llpayOpenapiRequest({ path, body, method, baseUrl }) {
       httpsAgent,
       data: reqBody,
     });
-    console.log("llpayOpenapiRequest", res);
   } catch (error) {
     const code =
       (error && typeof error.code === "string" && error.code) || "NETWORK_ERROR";

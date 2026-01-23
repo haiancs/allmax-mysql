@@ -34,17 +34,29 @@ async function resolvePayeeUidByDistributionRecordIds(recordIds) {
 
 async function updateLLPayStatus(txnSeqno, status, extraReplacements = {}) {
   try {
+    const columnAliasMap = {
+      platformTxno: "platform_txno",
+    };
+
+    const normalizedExtra = {};
+    for (const [rawKey, rawValue] of Object.entries(extraReplacements || {})) {
+      const key = columnAliasMap[rawKey] || rawKey;
+      if (!key) continue;
+      if (rawValue === undefined) continue;
+      normalizedExtra[key] = rawValue;
+    }
+
     const replacements = {
       status,
       updatedAt: Date.now(),
       txnSeqno,
-      ...extraReplacements
+      ...normalizedExtra,
     };
     
     // Dynamically build SET clause based on extraReplacements
-    const extraSets = Object.keys(extraReplacements)
-        .map(key => `\`${key}\` = :${key}`)
-        .join(", ");
+    const extraSets = Object.keys(normalizedExtra)
+      .map((key) => `\`${key}\` = :${key}`)
+      .join(", ");
     
     const setClause = `\`status\` = :status, \`updatedAt\` = :updatedAt` + (extraSets ? `, ${extraSets}` : "");
 
