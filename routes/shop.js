@@ -4,6 +4,7 @@ const { checkConnection, sequelize } = require("../db");
 const {
   createShopOrderInTransaction,
   createHttpError,
+  cancelShopOrderInTransaction,
 } = require("../services/shopOrderService");
 const { importSkuCsv } = require("../services/skuCsvImportService");
 const {
@@ -187,6 +188,67 @@ router.post("/orders", async (req, res) => {
     res.status(statusCode).send({
       code: -1,
       message: error?.message || "下单失败",
+      data: null,
+    });
+  }
+});
+
+router.post("/orders/:orderId/cancel", async (req, res) => {
+  if (!checkConnection()) {
+    return res.status(503).send({
+      code: -1,
+      message: "数据库未连接，请检查配置",
+      data: null,
+    });
+  }
+
+  const orderIdRaw =
+    typeof req?.params?.orderId === "string"
+      ? req.params.orderId
+      : typeof req?.body?.orderId === "string"
+        ? req.body.orderId
+        : "";
+  const orderId = orderIdRaw.trim();
+
+  if (!orderId) {
+    return res.status(400).send({
+      code: -1,
+      message: "orderId 必须存在",
+      data: null,
+    });
+  }
+
+  if (orderId.length > 64) {
+    return res.status(400).send({
+      code: -1,
+      message: "orderId 长度不能超过 64",
+      data: null,
+    });
+  }
+
+  const nowMs = Date.now();
+
+  try {
+    const result = await sequelize.transaction((transaction) =>
+      cancelShopOrderInTransaction(
+        {
+          orderId,
+          nowMs,
+        },
+        transaction
+      )
+    );
+
+    return res.send({
+      code: 0,
+      data: result,
+    });
+  } catch (error) {
+    const statusCode =
+      typeof error?.statusCode === "number" ? error.statusCode : 500;
+    return res.status(statusCode).send({
+      code: -1,
+      message: error?.message || "取消订单失败",
       data: null,
     });
   }

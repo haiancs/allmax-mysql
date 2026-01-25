@@ -33,6 +33,13 @@ async function securedConfirm(body) {
       body: { code: -1, message: "txnSeqno 或 orderId 必须存在", data: null },
     };
   }
+  if (txnSeqno.length > 64) {
+    return {
+      ok: false,
+      httpStatus: 400,
+      body: { code: -1, message: "txnSeqno 长度不能超过 64", data: null },
+    };
+  }
 
   let llpay;
   try {

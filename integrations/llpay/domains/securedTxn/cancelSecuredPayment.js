@@ -21,6 +21,17 @@ async function cancelSecuredPayment(body) {
       },
     };
   }
+  if (confirmTxnSeqno.length > 64) {
+    return {
+      ok: false,
+      httpStatus: 400,
+      body: {
+        code: -1,
+        message: "confirmTxnSeqno 长度不能超过 64",
+        data: null,
+      },
+    };
+  }
 
   let result;
   try {

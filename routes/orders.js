@@ -1,6 +1,16 @@
 const express = require("express");
-const { QueryTypes } = require("sequelize");
-const { checkConnection, sequelize } = require("../db");
+const { checkConnection } = require("../db");
+const {
+  findOrderById,
+  listOrders,
+  countOrders,
+} = require("../repos/shopOrderRepo");
+const {
+  listOrderItemsWithSkuSpuDistributionByOrderId,
+  listOrderItemsWithSkuSpuByOrderIds,
+} = require("../repos/shopOrderItemRepo");
+const { findDeliveryInfoById } = require("../repos/shopDeliveryInfoRepo");
+const { listAttrValuesBySkuIds } = require("../repos/shopAttrValueRepo");
 
 const router = express.Router();
 
@@ -38,37 +48,15 @@ async function handleGetOrderDetail(req, res) {
   }
 
   try {
-    const itemQuerySql = `SELECT
-        oi.\`_id\` AS \`orderItemId\`,
-        oi.\`sku\` AS \`skuId\`,
-        oi.\`count\` AS \`count\`,
-        oi.\`distribution_record\` AS \`distributionRecordId\`,
-        s.\`price\` AS \`price\`,
-        s.\`wholesale_price\` AS \`wholesalePrice\`,
-        s.\`image\` AS \`image\`,
-        s.\`spu\` AS \`spuId\`,
-        sp.\`name\` AS \`spuName\`,
-        dr.\`share_price\` AS \`sharePrice\`
-      FROM \`shop_order_item\` oi
-      INNER JOIN \`shop_sku\` s ON s.\`_id\` = oi.\`sku\`
-      LEFT JOIN \`shop_spu\` sp ON sp.\`_id\` = s.\`spu\`
-      LEFT JOIN \`shop_distribution_record\` dr ON dr.\`_id\` = oi.\`distribution_record\`
-      WHERE oi.\`order\` = :orderId
-      ORDER BY oi.\`_id\` ASC`;
-
-    const [orderRows, itemRows] = await Promise.all([
-      sequelize.query(
-        "SELECT `_id`, `status`, `totalPrice`, `delivery_info`, `createdAt` FROM `shop_order` WHERE `_id` = :orderId LIMIT 1",
-        { replacements: { orderId }, type: QueryTypes.SELECT }
-      ),
-      sequelize.query(itemQuerySql, {
-        replacements: { orderId },
-        type: QueryTypes.SELECT,
+    const [orderRow, itemRows] = await Promise.all([
+      findOrderById(orderId, {
+        attributes: ["id", "status", "totalPrice", "deliveryInfoId", "createdAt"],
       }),
+      listOrderItemsWithSkuSpuDistributionByOrderId(orderId),
     ]);
 
-    const orderRow = orderRows[0] || null;
-    if (!orderRow) {
+    const orderData = orderRow?.get ? orderRow.get({ plain: true }) : orderRow;
+    if (!orderData) {
       return res.status(404).send({
         code: -1,
         message: "订单不存在",
@@ -77,14 +65,14 @@ async function handleGetOrderDetail(req, res) {
     }
 
     const deliveryInfoId =
-      orderRow?.delivery_info != null ? String(orderRow.delivery_info).trim() : "";
-    const deliveryInfoRows = deliveryInfoId
-      ? await sequelize.query(
-          "SELECT `_id`, `name`, `phone`, `address` FROM `shop_delivery_info` WHERE `_id` = :id LIMIT 1",
-          { replacements: { id: deliveryInfoId }, type: QueryTypes.SELECT }
-        )
-      : [];
-    const deliveryInfoRow = deliveryInfoRows[0] || null;
+      orderData?.deliveryInfoId != null ? String(orderData.deliveryInfoId).trim() : "";
+    const deliveryInfoRow = deliveryInfoId
+      ? await findDeliveryInfoById(deliveryInfoId, {
+          attributes: ["id", "name", "phone", "address"],
+        })
+      : null;
+    const deliveryInfoData =
+      deliveryInfoRow?.get ? deliveryInfoRow.get({ plain: true }) : deliveryInfoRow;
 
     const orderItemsRaw = itemRows || [];
     const skuIds = Array.from(
@@ -97,18 +85,7 @@ async function handleGetOrderDetail(req, res) {
 
     const attrValuesBySkuId = new Map();
     if (skuIds.length) {
-      const attrRows = await sequelize.query(
-        `SELECT
-          m.\`leftRecordId\` AS \`skuId\`,
-          av.\`_id\` AS \`attrValueId\`,
-          av.\`value\` AS \`value\`
-        FROM \`mid_4RKieAhGh\` m
-        INNER JOIN \`shop_attr_value\` av ON av.\`_id\` = m.\`rightRecordId\`
-        WHERE m.\`leftRecordId\` IN (:skuIds)
-        ORDER BY m.\`leftRecordId\` ASC, av.\`_id\` ASC`,
-        { replacements: { skuIds }, type: QueryTypes.SELECT }
-      );
-
+      const attrRows = await listAttrValuesBySkuIds(skuIds);
       for (const row of attrRows || []) {
         const skuId = row?.skuId != null ? String(row.skuId).trim() : "";
         const attrValueId =
@@ -172,18 +149,20 @@ async function handleGetOrderDetail(req, res) {
     }));
 
     const order = {
-      _id: orderRow?._id != null ? String(orderRow._id) : "",
-      orderNo: orderRow?._id != null ? String(orderRow._id) : "",
-      status: orderRow?.status != null ? String(orderRow.status) : null,
-      totalPrice: orderRow?.totalPrice != null ? Number(orderRow.totalPrice) : null,
-      createdAt: orderRow?.createdAt != null ? orderRow.createdAt : null,
-      delivery_info: deliveryInfoRow
+      _id: orderData?.id != null ? String(orderData.id) : "",
+      orderNo: orderData?.id != null ? String(orderData.id) : "",
+      status: orderData?.status != null ? String(orderData.status) : null,
+      totalPrice: orderData?.totalPrice != null ? Number(orderData.totalPrice) : null,
+      createdAt: orderData?.createdAt != null ? orderData.createdAt : null,
+      delivery_info: deliveryInfoData
         ? {
-            _id: deliveryInfoRow?._id != null ? String(deliveryInfoRow._id) : "",
-            name: deliveryInfoRow?.name != null ? String(deliveryInfoRow.name) : null,
-            phone: deliveryInfoRow?.phone != null ? String(deliveryInfoRow.phone) : null,
+            _id: deliveryInfoData?.id != null ? String(deliveryInfoData.id) : "",
+            name: deliveryInfoData?.name != null ? String(deliveryInfoData.name) : null,
+            phone: deliveryInfoData?.phone != null ? String(deliveryInfoData.phone) : null,
             address:
-              deliveryInfoRow?.address != null ? String(deliveryInfoRow.address) : null,
+              deliveryInfoData?.address != null
+                ? String(deliveryInfoData.address)
+                : null,
           }
         : null,
       orderItems,
@@ -287,8 +266,7 @@ router.post("/orders", async (req, res) => {
   }
 
   try {
-    const whereParts = ["`user` = :userId"];
-    const replacements = { userId };
+    let uniqStatuses = [];
 
     if (statusText) {
       const statuses = statusText
@@ -317,7 +295,7 @@ router.post("/orders", async (req, res) => {
           "RETURN_MONEY_REFUSED",
         ]);
 
-        const uniqStatuses = Array.from(new Set(statuses));
+        uniqStatuses = Array.from(new Set(statuses));
         const invalid = uniqStatuses.filter((s) => !allowedStatuses.has(s));
         if (invalid.length) {
           return res.status(400).send({
@@ -326,43 +304,59 @@ router.post("/orders", async (req, res) => {
             data: null,
           });
         }
-
-        whereParts.push("`status` IN (:statuses)");
-        replacements.statuses = uniqStatuses;
       }
     }
 
-    const totalRows = await sequelize.query(
-      `SELECT COUNT(*) AS \`total\` FROM \`shop_order\` WHERE ${whereParts.join(" AND ")}`,
-      { replacements, type: QueryTypes.SELECT }
-    );
-    const total = Number(totalRows?.[0]?.total || 0);
-
     const offset = (pageNumber - 1) * pageSize;
-    const orderRows = await sequelize.query(
-      `SELECT \`_id\`, \`clientOrderNo\`, \`status\`, \`totalPrice\`, \`user\`, \`orderExpireTime\`, \`delivery_info\`, \`createdAt\`, \`updatedAt\`
-       FROM \`shop_order\`
-       WHERE ${whereParts.join(" AND ")}
-       ORDER BY \`createdAt\` DESC, \`_id\` DESC
-       LIMIT :limit OFFSET :offset`,
-      {
-        replacements: { ...replacements, limit: pageSize, offset },
-        type: QueryTypes.SELECT,
-      }
-    );
+    const countFilter = uniqStatuses.length
+      ? { userId, statuses: uniqStatuses }
+      : { userId };
+    const total = Number((await countOrders(countFilter)) || 0);
 
-    const records = (orderRows || []).map((row) => ({
-      _id: row?._id != null ? String(row._id) : "",
-      clientOrderNo: row?.clientOrderNo != null ? String(row.clientOrderNo) : null,
-      status: row?.status != null ? String(row.status) : null,
-      totalPrice: row?.totalPrice != null ? Number(row.totalPrice) : null,
-      user: row?.user != null ? String(row.user) : null,
-      orderExpireTime: row?.orderExpireTime != null ? String(row.orderExpireTime) : null,
-      delivery_info: row?.delivery_info != null ? String(row.delivery_info) : null,
-      createdAt: row?.createdAt != null ? row.createdAt : null,
-      updatedAt: row?.updatedAt != null ? row.updatedAt : null,
-      orderItems: [],
-    }));
+    const listFilter = {
+      userId,
+      offset,
+      limit: pageSize,
+      order: [
+        ["createdAt", "DESC"],
+        ["id", "DESC"],
+      ],
+    };
+    if (uniqStatuses.length) {
+      listFilter.statuses = uniqStatuses;
+    }
+
+    const orderRows = await listOrders(listFilter, {
+      attributes: [
+        "id",
+        "clientOrderNo",
+        "status",
+        "totalPrice",
+        "userId",
+        "orderExpireTime",
+        "deliveryInfoId",
+        "createdAt",
+        "updatedAt",
+      ],
+    });
+
+    const records = (orderRows || []).map((row) => {
+      const data = row?.get ? row.get({ plain: true }) : row;
+      return {
+        _id: data?.id != null ? String(data.id) : "",
+        clientOrderNo: data?.clientOrderNo != null ? String(data.clientOrderNo) : null,
+        status: data?.status != null ? String(data.status) : null,
+        totalPrice: data?.totalPrice != null ? Number(data.totalPrice) : null,
+        user: data?.userId != null ? String(data.userId) : null,
+        orderExpireTime:
+          data?.orderExpireTime != null ? String(data.orderExpireTime) : null,
+        delivery_info:
+          data?.deliveryInfoId != null ? String(data.deliveryInfoId) : null,
+        createdAt: data?.createdAt != null ? data.createdAt : null,
+        updatedAt: data?.updatedAt != null ? data.updatedAt : null,
+        orderItems: [],
+      };
+    });
 
     const orderIds = records.map((r) => r._id).filter(Boolean);
     if (!orderIds.length) {
@@ -373,27 +367,7 @@ router.post("/orders", async (req, res) => {
     }
 
     const orderById = new Map(records.map((r) => [r._id, r]));
-    const itemRows = await sequelize.query(
-      `SELECT
-        oi.\`_id\` AS \`orderItemId\`,
-        oi.\`order\` AS \`orderId\`,
-        oi.\`sku\` AS \`skuId\`,
-        oi.\`count\` AS \`count\`,
-        s.\`price\` AS \`price\`,
-        s.\`wholesale_price\` AS \`wholesalePrice\`,
-        s.\`image\` AS \`image\`,
-        s.\`spu\` AS \`spuId\`,
-        sp.\`name\` AS \`spuName\`
-      FROM \`shop_order_item\` oi
-      INNER JOIN \`shop_sku\` s ON s.\`_id\` = oi.\`sku\`
-      LEFT JOIN \`shop_spu\` sp ON sp.\`_id\` = s.\`spu\`
-      WHERE oi.\`order\` IN (:orderIds)
-      ORDER BY oi.\`order\` ASC, oi.\`_id\` ASC`,
-      {
-        replacements: { orderIds },
-        type: QueryTypes.SELECT,
-      }
-    );
+    const itemRows = await listOrderItemsWithSkuSpuByOrderIds(orderIds);
 
     for (const row of itemRows || []) {
       const orderId = row?.orderId != null ? String(row.orderId) : "";

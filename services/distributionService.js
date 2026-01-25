@@ -8,7 +8,7 @@ const {
   getCommissionSummaryByUser,
   DistributorUser,
   Product,
-} = require("../daos/distributionDao");
+} = require("../repos/distributionRepo");
 
 async function ensureUserByOpenId(openId, nickname, transaction) {
   let user = await findUserByOpenId(openId, { transaction });

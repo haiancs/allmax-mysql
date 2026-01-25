@@ -167,37 +167,6 @@ function getLLPayHttpStatus(result) {
   return 502; // 默认网关错误
 }
 
-function resolvePayParamsExpireTimeMs({ expireTime, txnTime, updatedAt, createdAt, payExpireMin }) {
-  const expireMs = parseMsValue(expireTime);
-  if (expireMs != null) return expireMs;
-
-  const txnMs = parseTimestamp14ToMs(txnTime);
-  if (txnMs != null) {
-    const min = typeof payExpireMin === "number" && Number.isFinite(payExpireMin) ? payExpireMin : null;
-    if (min != null && min > 0) return txnMs + min * 60 * 1000;
-    return null;
-  }
-
-  const baseMs = parseMsValue(updatedAt) ?? parseMsValue(createdAt);
-  if (baseMs == null) return null;
-  const min = typeof payExpireMin === "number" && Number.isFinite(payExpireMin) ? payExpireMin : null;
-  if (min == null || !(min > 0)) return null;
-  return baseMs + min * 60 * 1000;
-}
-
-function getLLPayHttpStatus(result) {
-  const errCode = result.code || null;
-  const statusCode = typeof result.statusCode === "number" ? result.statusCode : 0;
-  if (errCode === "INVALID_PATH") {
-    return 400;
-  } else if (errCode === "MISSING_MCH_ID" || errCode === "MISSING_PRIVATE_KEY") {
-    return 500;
-  } else if (statusCode >= 400 && statusCode <= 599) {
-    return statusCode;
-  }
-  return 502;
-}
-
 module.exports = {
   safeTrim,
   buildTxnSeqnoFromOrderId,

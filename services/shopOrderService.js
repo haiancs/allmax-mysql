@@ -82,6 +82,31 @@ async function bulkDecrementSkuStock(items, transaction) {
     : 0;
 }
 
+async function bulkIncrementSkuStock(items, transaction) {
+  if (!items.length) {
+    return 0;
+  }
+
+  const pairs = items.map((item) => ({
+    id: item.skuId,
+    value: item.quantity,
+  }));
+  const built = buildCasePairsById("`_id`", pairs, "skuId_", "qty_");
+
+  const sql = `UPDATE \`shop_sku\`
+    SET \`stock\` = COALESCE(\`stock\`, 0) + (${built.caseExpr})
+    WHERE \`_id\` IN (${built.inExpr})`;
+
+  const [_, metadata] = await sequelize.query(sql, {
+    replacements: built.replacements,
+    transaction,
+  });
+
+  return metadata && typeof metadata.affectedRows === "number"
+    ? metadata.affectedRows
+    : 0;
+}
+
 async function createShopOrderInTransaction(
   {
     clientOrderNo,
@@ -519,7 +544,144 @@ async function createShopOrderInTransaction(
   };
 }
 
+async function cancelShopOrderInTransaction({ orderId, nowMs }, transaction) {
+  const normalizedOrderId =
+    typeof orderId === "string" && orderId.trim() ? orderId.trim() : "";
+
+  if (!normalizedOrderId) {
+    throw createHttpError(400, "orderId 必须存在");
+  }
+
+  if (normalizedOrderId.length > 64) {
+    throw createHttpError(400, "orderId 长度不能超过 64");
+  }
+
+  const orderRows = await sequelize.query(
+    "SELECT `_id`, `clientOrderNo`, `status`, `totalPrice`, `user`, `orderExpireTime`, `delivery_info`, `createdAt`, `updatedAt` FROM `shop_order` WHERE `_id` = ? LIMIT 1",
+    {
+      replacements: [normalizedOrderId],
+      type: QueryTypes.SELECT,
+      transaction,
+    }
+  );
+  const order = orderRows[0] || null;
+  if (!order) {
+    throw createHttpError(404, "订单不存在");
+  }
+
+  const orderStatus = order?.status != null ? String(order.status).trim() : "";
+
+  const llpayRows = await sequelize.query(
+    "SELECT `txnSeqno`, `status` FROM `llpay_v2` WHERE `orderId` = ? LIMIT 1",
+    {
+      replacements: [normalizedOrderId],
+      type: QueryTypes.SELECT,
+      transaction,
+    }
+  );
+  const llpay = llpayRows[0] || null;
+  const llpayStatus = llpay?.status != null ? String(llpay.status).trim() : "";
+  if (llpayStatus.toUpperCase() === "PAID") {
+    throw createHttpError(400, "支付单已支付，不允许取消订单");
+  }
+
+  let didCancel = false;
+  if (orderStatus === "TO_PAY") {
+    const [_, metadata] = await sequelize.query(
+      "UPDATE `shop_order` SET `status` = ?, `updatedAt` = ? WHERE `_id` = ? AND `status` = 'TO_PAY' LIMIT 1",
+      {
+        replacements: ["CANCELED", nowMs, normalizedOrderId],
+        transaction,
+      }
+    );
+    const affectedRows =
+      metadata && typeof metadata.affectedRows === "number"
+        ? metadata.affectedRows
+        : 0;
+    if (!affectedRows) {
+      const latestRows = await sequelize.query(
+        "SELECT `status` FROM `shop_order` WHERE `_id` = ? LIMIT 1",
+        {
+          replacements: [normalizedOrderId],
+          type: QueryTypes.SELECT,
+          transaction,
+        }
+      );
+      const latestStatus =
+        latestRows[0]?.status != null ? String(latestRows[0].status).trim() : "";
+      if (latestStatus === "CANCELED") {
+        didCancel = false;
+      } else {
+        throw createHttpError(409, "订单状态已变更");
+      }
+    } else {
+      didCancel = true;
+    }
+  } else if (orderStatus === "CANCELED") {
+    didCancel = false;
+  } else {
+    throw createHttpError(400, `订单状态不允许取消: ${orderStatus || "UNKNOWN"}`);
+  }
+
+  const itemRows = await sequelize.query(
+    "SELECT `sku`, `count` FROM `shop_order_item` WHERE `order` = ?",
+    {
+      replacements: [normalizedOrderId],
+      type: QueryTypes.SELECT,
+      transaction,
+    }
+  );
+
+  const mergedBySkuId = new Map();
+  for (const row of itemRows || []) {
+    const skuId = row?.sku != null ? String(row.sku).trim() : "";
+    const qty = Number(row?.count || 0);
+    if (!skuId || !Number.isFinite(qty) || qty <= 0) continue;
+    const prev = mergedBySkuId.get(skuId) || 0;
+    mergedBySkuId.set(skuId, prev + qty);
+  }
+
+  const items = Array.from(mergedBySkuId.entries()).map(([skuId, quantity]) => ({
+    skuId,
+    quantity,
+  }));
+
+  if (didCancel && items.length) {
+    const affectedRows = await bulkIncrementSkuStock(items, transaction);
+    if (affectedRows !== items.length) {
+      throw createHttpError(500, "回补库存失败");
+    }
+  }
+
+  if (llpay) {
+    await sequelize.query(
+      "UPDATE `llpay_v2` SET `status` = ?, `updatedAt` = ? WHERE `orderId` = ? LIMIT 1",
+      {
+        replacements: ["FAILED", nowMs, normalizedOrderId],
+        transaction,
+      }
+    );
+  }
+
+  const updatedRows = await sequelize.query(
+    "SELECT `_id`, `clientOrderNo`, `status`, `totalPrice`, `user`, `orderExpireTime`, `delivery_info`, `createdAt`, `updatedAt` FROM `shop_order` WHERE `_id` = ? LIMIT 1",
+    {
+      replacements: [normalizedOrderId],
+      type: QueryTypes.SELECT,
+      transaction,
+    }
+  );
+
+  return {
+    order: updatedRows[0] || order,
+    items,
+    llpay,
+    isIdempotentHit: !didCancel,
+  };
+}
+
 module.exports = {
   createShopOrderInTransaction,
+  cancelShopOrderInTransaction,
   createHttpError,
 };

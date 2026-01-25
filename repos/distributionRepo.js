@@ -1,5 +1,6 @@
-const { DataTypes } = require("sequelize");
+const { DataTypes, QueryTypes } = require("sequelize");
 const { sequelize } = require("../db");
+const { safeTrim } = require("../utils/llpayRouteUtils");
 
 const DistributorUser = sequelize.define(
   "DistributorUser",
@@ -247,6 +248,36 @@ async function getCommissionSummaryByUser(userId, options = {}) {
   };
 }
 
+async function resolvePayeeUidByDistributionRecordIds(recordIds) {
+  const ids = Array.from(new Set(recordIds.map((v) => safeTrim(v)).filter(Boolean)));
+  if (!ids.length) return new Map();
+
+  try {
+    const colRows = await sequelize.query(
+      "SHOW COLUMNS FROM `shop_distribution_record` LIKE 'distributor'",
+      { type: QueryTypes.SELECT }
+    );
+    if (!Array.isArray(colRows) || colRows.length === 0) return new Map();
+  } catch (_) {
+    return new Map();
+  }
+
+  const mapping = new Map();
+  try {
+    const rows = await sequelize.query(
+      "SELECT `_id` AS `recordId`, `distributor` AS `payeeUid` FROM `shop_distribution_record` WHERE `_id` IN (:ids)",
+      { replacements: { ids }, type: QueryTypes.SELECT }
+    );
+    for (const row of rows || []) {
+      const recordId = safeTrim(row?.recordId);
+      const payeeUid = safeTrim(row?.payeeUid);
+      if (recordId && payeeUid) mapping.set(recordId, payeeUid);
+    }
+  } catch (_) {}
+
+  return mapping;
+}
+
 module.exports = {
   DistributorUser,
   Product,
@@ -259,5 +290,5 @@ module.exports = {
   createOrderWithItems,
   createCommissionRecords,
   getCommissionSummaryByUser,
+  resolvePayeeUidByDistributionRecordIds,
 };
-

@@ -18,16 +18,23 @@ async function findByOrderId(orderId) {
 }
 
 async function updateStatus(txnSeqno, status, extraFields = {}) {
-  const fields = Object.assign({}, extraFields || {}, { status });
-  const keys = Object.keys(fields);
-  if (!keys.length) return 0;
+  try {
+    const fields = Object.assign({}, extraFields || {}, { status });
+    if (!Object.prototype.hasOwnProperty.call(fields, "updatedAt")) {
+      fields.updatedAt = Date.now();
+    }
+    const keys = Object.keys(fields);
+    if (!keys.length) return 0;
 
-  const setClause = keys.map((k) => `\`${k}\` = :${k}`).join(", ");
-  const sql = `UPDATE \`llpay_v2\` SET ${setClause} WHERE \`txnSeqno\` = :txnSeqno LIMIT 1`;
-  const replacements = Object.assign({ txnSeqno }, fields);
-  const [, metadata] = await sequelize.query(sql, { replacements });
-  const affectedRows = metadata && typeof metadata.affectedRows === "number" ? metadata.affectedRows : 0;
-  return affectedRows;
+    const setClause = keys.map((k) => `\`${k}\` = :${k}`).join(", ");
+    const sql = `UPDATE \`llpay_v2\` SET ${setClause} WHERE \`txnSeqno\` = :txnSeqno LIMIT 1`;
+    const replacements = Object.assign({ txnSeqno }, fields);
+    const [, metadata] = await sequelize.query(sql, { replacements });
+    const affectedRows = metadata && typeof metadata.affectedRows === "number" ? metadata.affectedRows : 0;
+    return affectedRows;
+  } catch (_) {
+    return 0;
+  }
 }
 
 async function recordSecuredConfirm(txnSeqno, confirmTxnSeqno, confirmTxnTime) {
@@ -45,4 +52,3 @@ module.exports = {
   updateStatus,
   recordSecuredConfirm,
 };
-
