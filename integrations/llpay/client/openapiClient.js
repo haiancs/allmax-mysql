@@ -8,6 +8,9 @@ const {
   rsaSignMd5HexMessageFromData,
 } = require("../../../utils/llpayCryptoUtils");
 
+const {
+  formatDateTimeCN,
+} = require("../../../utils/llpayRouteUtils");
 const httpAgent = new http.Agent({ keepAlive: true });
 const httpsAgent = new https.Agent({ keepAlive: true });
 
@@ -39,7 +42,7 @@ async function requestLLPayOpenapi({ path, method, body, baseUrl } = {}) {
 
     const message = buildJsonString(reqBody);
     const signature = rsaSignMd5HexMessageFromData(message, privateKey);
-    const ts = String(Date.now());
+    const ts = formatDateTimeCN(new Date());
 
     const headers = {
       "Signature-Data": signature,

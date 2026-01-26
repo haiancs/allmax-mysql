@@ -1,5 +1,35 @@
-const { DataTypes } = require("sequelize");
+const { DataTypes, QueryTypes } = require("sequelize");
 const { sequelize } = require("../db");
+
+let cartItemDistributionPriceColumn = null;
+async function resolveCartItemDistributionPriceColumn(options = {}) {
+  const transaction = options?.transaction;
+  if (cartItemDistributionPriceColumn !== null) {
+    return cartItemDistributionPriceColumn;
+  }
+  try {
+    const rows = await sequelize.query(
+      "SHOW COLUMNS FROM `shop_cart_item` LIKE 'distributionPrice'",
+      { type: QueryTypes.SELECT, transaction }
+    );
+    if (Array.isArray(rows) && rows.length) {
+      cartItemDistributionPriceColumn = "distributionPrice";
+      return cartItemDistributionPriceColumn;
+    }
+  } catch (_) {}
+  try {
+    const rows = await sequelize.query(
+      "SHOW COLUMNS FROM `shop_cart_item` LIKE 'distribution_price'",
+      { type: QueryTypes.SELECT, transaction }
+    );
+    if (Array.isArray(rows) && rows.length) {
+      cartItemDistributionPriceColumn = "distribution_price";
+      return cartItemDistributionPriceColumn;
+    }
+  } catch (_) {}
+  cartItemDistributionPriceColumn = "";
+  return cartItemDistributionPriceColumn;
+}
 
 const ShopCartItem = sequelize.define(
   "ShopCartItem",
@@ -83,6 +113,7 @@ async function listCartItems(filter = {}, options = {}) {
 
 module.exports = {
   ShopCartItem,
+  resolveCartItemDistributionPriceColumn,
   createCartItem,
   updateCartItemById,
   deleteCartItemById,

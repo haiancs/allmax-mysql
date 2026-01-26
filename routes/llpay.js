@@ -4,11 +4,13 @@ const { requestLLPayOpenapi } = require("../integrations/llpay/client/openapiCli
 const { getLLPayHttpStatus } = require("../utils/llpayRouteUtils");
 const { createPay } = require("../integrations/llpay/domains/payment/createPay");
 const {
-  divideableAmtQuery,
-} = require("../integrations/llpay/domains/divide/divideableAmtQuery");
+  refundApply,
+  refundQuery,
+} = require("../integrations/llpay/domains/refund/refund");
 const {
-  divideBillQuery,
-} = require("../integrations/llpay/domains/divide/divideBillQuery");
+  orderQuery,
+  securedQuery,
+} = require("../integrations/llpay/domains/query/llpayQuery");
 
 const router = express.Router();
 
@@ -25,14 +27,26 @@ router.post("/pay", async (req, res) => {
   return res.send(result.body);
 });
 
-router.post("/divideable-amt-query", async (req, res) => {
-  const result = await divideableAmtQuery(req.body);
+router.post("/refund", async (req, res) => {
+  const result = await refundApply(req.body);
   if (!result.ok) return res.status(result.httpStatus).send(result.body);
   return res.send(result.body);
 });
 
-router.post("/divide-bill-query", async (req, res) => {
-  const result = await divideBillQuery(req.body);
+router.post("/refund-query", async (req, res) => {
+  const result = await refundQuery(req.body);
+  if (!result.ok) return res.status(result.httpStatus).send(result.body);
+  return res.send(result.body);
+});
+
+router.post("/order-query", async (req, res) => {
+  const result = await orderQuery(req.body);
+  if (!result.ok) return res.status(result.httpStatus).send(result.body);
+  return res.send(result.body);
+});
+
+router.post("/secured-query", async (req, res) => {
+  const result = await securedQuery(req.body);
   if (!result.ok) return res.status(result.httpStatus).send(result.body);
   return res.send(result.body);
 });

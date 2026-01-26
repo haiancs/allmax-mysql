@@ -2,6 +2,9 @@ const crypto = require("crypto");
 const express = require("express");
 const { QueryTypes } = require("sequelize");
 const { checkConnection, sequelize } = require("../db");
+const {
+  resolveCartItemDistributionPriceColumn,
+} = require("../repos/shopCartItemRepo");
 
 const router = express.Router();
 
@@ -116,6 +119,7 @@ router.post("/cart/add", async (req, res) => {
       });
     }
 
+    let distributionPrice = null;
     if (distributionRecordId) {
       const distributionRows = await sequelize.query(
         "SELECT `_id`, `sku`, `share_price` FROM `shop_distribution_record` WHERE `_id` = ? LIMIT 1",
@@ -136,6 +140,16 @@ router.post("/cart/add", async (req, res) => {
           data: null,
         });
       }
+
+      const sharePrice = Number(record.share_price);
+      if (!Number.isFinite(sharePrice) || sharePrice < 0) {
+        return res.status(400).send({
+          code: -1,
+          message: "分销价无效",
+          data: null,
+        });
+      }
+      distributionPrice = sharePrice;
     }
 
     const whereParts = ["`user` = :userId", "`sku` = :skuId"];
@@ -162,16 +176,25 @@ router.post("/cart/add", async (req, res) => {
     let newCount;
     let created = false;
 
+    const cartDistributionPriceColumn = await resolveCartItemDistributionPriceColumn();
     if (existingRows.length) {
       const row = existingRows[0];
       itemId = String(row._id);
       const prevCount = Number(row.count || 0);
       newCount = prevCount + addCount;
 
+      const updateColumns = ["`count` = ?", "`updatedAt` = ?"];
+      const updateReplacements = [newCount, nowMs];
+      if (cartDistributionPriceColumn) {
+        updateColumns.push(`\`${cartDistributionPriceColumn}\` = ?`);
+        updateReplacements.push(distributionPrice);
+      }
+      updateReplacements.push(itemId);
+
       await sequelize.query(
-        "UPDATE `shop_cart_item` SET `count` = ?, `updatedAt` = ? WHERE `_id` = ?",
+        `UPDATE \`shop_cart_item\` SET ${updateColumns.join(", ")} WHERE \`_id\` = ?`,
         {
-          replacements: [newCount, nowMs, itemId],
+          replacements: updateReplacements,
         }
       );
     } else {
@@ -179,18 +202,35 @@ router.post("/cart/add", async (req, res) => {
       newCount = addCount;
       created = true;
 
+      const cartItemColumns = [
+        "`_id`",
+        "`user`",
+        "`sku`",
+        "`count`",
+        "`distribution_record`",
+      ];
+      if (cartDistributionPriceColumn) {
+        cartItemColumns.push(`\`${cartDistributionPriceColumn}\``);
+      }
+      cartItemColumns.push("`createdAt`", "`updatedAt`");
+      const placeholders = cartItemColumns.map(() => "?").join(", ");
+      const insertReplacements = [
+        itemId,
+        userId,
+        skuId,
+        newCount,
+        distributionRecordId,
+        ...(cartDistributionPriceColumn ? [distributionPrice] : []),
+        nowMs,
+        nowMs,
+      ];
+
       await sequelize.query(
-        "INSERT INTO `shop_cart_item` (`_id`, `user`, `sku`, `count`, `distribution_record`, `createdAt`, `updatedAt`) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        `INSERT INTO \`shop_cart_item\` (${cartItemColumns.join(
+          ", "
+        )}) VALUES (${placeholders})`,
         {
-          replacements: [
-            itemId,
-            userId,
-            skuId,
-            newCount,
-            distributionRecordId,
-            nowMs,
-            nowMs,
-          ],
+          replacements: insertReplacements,
         }
       );
     }
@@ -204,6 +244,7 @@ router.post("/cart/add", async (req, res) => {
           skuId,
           count: newCount,
           distributionRecordId,
+          distributionPrice,
         },
         op: created ? "created" : "updated",
       },
@@ -251,6 +292,11 @@ router.get("/cart", async (req, res) => {
   }
 
   try {
+    const cartDistributionPriceColumn = await resolveCartItemDistributionPriceColumn();
+    const sharePriceSelect = cartDistributionPriceColumn
+      ? `COALESCE(c.\`${cartDistributionPriceColumn}\`, dr.\`share_price\`) AS \`sharePrice\`,
+        c.\`${cartDistributionPriceColumn}\` AS \`distributionPrice\``
+      : "dr.`share_price` AS `sharePrice`";
     const rows = await sequelize.query(
       `SELECT
         c.\`_id\` AS \`cartItemId\`,
@@ -265,7 +311,7 @@ router.get("/cart", async (req, res) => {
         s.\`image\` AS \`image\`,
         s.\`spu\` AS \`spuId\`,
         sp.\`name\` AS \`spuName\`,
-        dr.\`share_price\` AS \`sharePrice\`
+        ${sharePriceSelect}
       FROM \`shop_cart_item\` c
       INNER JOIN \`shop_sku\` s ON s.\`_id\` = c.\`sku\`
       LEFT JOIN \`shop_spu\` sp ON sp.\`_id\` = s.\`spu\`
@@ -289,6 +335,10 @@ router.get("/cart", async (req, res) => {
         row?.sharePrice != null && row.sharePrice !== ""
           ? Number(row.sharePrice)
           : null;
+      const distributionPrice =
+        row?.distributionPrice != null && row.distributionPrice !== ""
+          ? Number(row.distributionPrice)
+          : null;
       return {
         _id: row?.cartItemId != null ? String(row.cartItemId) : "",
         user: row?.user != null ? String(row.user) : null,
@@ -300,6 +350,7 @@ router.get("/cart", async (req, res) => {
             : null,
         createdAt: row?.createdAt != null ? row.createdAt : null,
         updatedAt: row?.updatedAt != null ? row.updatedAt : null,
+        distributionPrice,
         sku: skuId
           ? {
               _id: skuId,
