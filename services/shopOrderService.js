@@ -1,6 +1,9 @@
 const crypto = require("crypto");
 const { QueryTypes } = require("sequelize");
 const { sequelize } = require("../db");
+const {
+  resolveOrderItemDistributionPriceColumn,
+} = require("../repos/shopOrderItemRepo");
 
 function generateId() {
   return crypto.randomBytes(16).toString("hex");
@@ -283,8 +286,6 @@ async function createShopOrderInTransaction(
     String(a).localeCompare(String(b))
   );
 
-  const distributor = isDistributor === true;
-
   const skuRows = await sequelize.query(
     "SELECT `_id`, `price`, `wholesale_price` AS `wholesalePrice`, COALESCE(`stock`, 0) AS `stock` FROM `shop_sku` WHERE `_id` IN (:skuIds)",
     {
@@ -384,6 +385,10 @@ async function createShopOrderInTransaction(
   }
 
   let totalFen = 0;
+  const orderItemsToInsert = [];
+  const distributionPriceColumn = await resolveOrderItemDistributionPriceColumn({
+    transaction,
+  });
   for (const line of itemLines) {
     const skuId = line.skuId;
     const qty = line.quantity;
@@ -391,6 +396,9 @@ async function createShopOrderInTransaction(
     if (!sku) {
       throw createHttpError(400, "SKU 不存在");
     }
+
+    let unitPrice = Number(sku.price || 0);
+    let distributionPrice = null;
 
     if (line.distributionRecordId) {
       const recordId = String(line.distributionRecordId);
@@ -405,22 +413,25 @@ async function createShopOrderInTransaction(
         throw createHttpError(400, "分销价无效");
       }
 
-      const unitFen = Math.round(sharePrice * 100);
-      totalFen += unitFen * qty;
-      continue;
+      unitPrice = sharePrice;
+      distributionPrice = sharePrice;
     }
 
-    const unitPrice = distributor
-      ? Number((sku.wholesalePrice ?? sku.price) || 0)
-      : Number(sku.price || 0);
     const unitFen = Math.round(unitPrice * 100);
     totalFen += unitFen * qty;
+
+    orderItemsToInsert.push({
+      skuId,
+      quantity: qty,
+      distributionRecordId: line.distributionRecordId || null,
+      distributionPrice,
+    });
   }
 
-  const orderItemsToInsert = [];
+  const stockItemsToUpdate = [];
   for (const skuId of sortedSkuIds) {
     const qty = mergedQuantityBySkuId.get(skuId) || 0;
-    orderItemsToInsert.push({ skuId, quantity: qty });
+    stockItemsToUpdate.push({ skuId, quantity: qty });
   }
 
   const totalPrice = totalFen / 100;
@@ -476,16 +487,27 @@ async function createShopOrderInTransaction(
     };
   }
 
-  if (orderItemsToInsert.length) {
-    const affectedRows = await bulkDecrementSkuStock(orderItemsToInsert, transaction);
-    if (affectedRows !== orderItemsToInsert.length) {
+  if (stockItemsToUpdate.length) {
+    const affectedRows = await bulkDecrementSkuStock(stockItemsToUpdate, transaction);
+    if (affectedRows !== stockItemsToUpdate.length) {
       throw createHttpError(400, "库存不足或 SKU 不存在");
     }
   }
 
   if (orderItemsToInsert.length) {
+    const orderItemColumns = [
+      "`_id`",
+      "`order`",
+      "`sku`",
+      "`count`",
+      "`distribution_record`",
+    ];
+    if (distributionPriceColumn) {
+      orderItemColumns.push(`\`${distributionPriceColumn}\``);
+    }
+    orderItemColumns.push("`createdAt`", "`updatedAt`");
     const placeholders = orderItemsToInsert
-      .map(() => "(?, ?, ?, ?, ?, ?)")
+      .map(() => `(${orderItemColumns.map(() => "?").join(", ")})`)
       .join(", ");
     const replacements = [];
     for (const item of orderItemsToInsert) {
@@ -494,13 +516,15 @@ async function createShopOrderInTransaction(
         orderId,
         item.skuId,
         item.quantity,
+        item.distributionRecordId,
+        ...(distributionPriceColumn ? [item.distributionPrice] : []),
         nowMs,
         nowMs
       );
     }
 
     await sequelize.query(
-      `INSERT INTO \`shop_order_item\` (\`_id\`, \`order\`, \`sku\`, \`count\`, \`createdAt\`, \`updatedAt\`) VALUES ${placeholders}`,
+      `INSERT INTO \`shop_order_item\` (${orderItemColumns.join(", ")}) VALUES ${placeholders}`,
       {
         replacements,
         transaction,

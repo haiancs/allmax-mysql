@@ -2,6 +2,9 @@ const { QueryTypes } = require("sequelize");
 const { sequelize } = require("../../../../db");
 const { requestLLPayOpenapi } = require("../../client/openapiClient");
 const { resolvePayeeUidByDistributionRecordIds } = require("../../../../repos/distributionRepo");
+const {
+  resolveOrderItemDistributionPriceColumn,
+} = require("../../../../repos/shopOrderItemRepo");
 const llpayRepo = require("../../repos/llpayRepo");
 const {
   safeTrim,
@@ -155,6 +158,10 @@ async function createPay({ body, req } = {}) {
       };
     }
 
+    const distributionPriceColumn = await resolveOrderItemDistributionPriceColumn();
+    const sharePriceSelect = distributionPriceColumn
+      ? `COALESCE(oi.\`${distributionPriceColumn}\`, dr.\`share_price\`) AS \`sharePrice\``
+      : "dr.`share_price` AS `sharePrice`";
     const itemQuerySql = `SELECT
           oi.\`_id\` AS \`orderItemId\`,
           oi.\`sku\` AS \`skuId\`,
@@ -164,7 +171,7 @@ async function createPay({ body, req } = {}) {
           s.\`wholesale_price\` AS \`wholesalePrice\`,
           s.\`image\` AS \`image\`,
           sp.\`name\` AS \`spuName\`,
-          dr.\`share_price\` AS \`sharePrice\`
+          ${sharePriceSelect}
         FROM \`shop_order_item\` oi
         INNER JOIN \`shop_sku\` s ON s.\`_id\` = oi.\`sku\`
         LEFT JOIN \`shop_spu\` sp ON sp.\`_id\` = s.\`spu\`

@@ -1,6 +1,36 @@
 const { DataTypes, QueryTypes } = require("sequelize");
 const { sequelize } = require("../db");
 
+let orderItemDistributionPriceColumn = null;
+async function resolveOrderItemDistributionPriceColumn(options = {}) {
+  const transaction = options?.transaction;
+  if (orderItemDistributionPriceColumn !== null) {
+    return orderItemDistributionPriceColumn;
+  }
+  try {
+    const rows = await sequelize.query(
+      "SHOW COLUMNS FROM `shop_order_item` LIKE 'distributionPrice'",
+      { type: QueryTypes.SELECT, transaction }
+    );
+    if (Array.isArray(rows) && rows.length) {
+      orderItemDistributionPriceColumn = "distributionPrice";
+      return orderItemDistributionPriceColumn;
+    }
+  } catch (_) {}
+  try {
+    const rows = await sequelize.query(
+      "SHOW COLUMNS FROM `shop_order_item` LIKE 'distribution_price'",
+      { type: QueryTypes.SELECT, transaction }
+    );
+    if (Array.isArray(rows) && rows.length) {
+      orderItemDistributionPriceColumn = "distribution_price";
+      return orderItemDistributionPriceColumn;
+    }
+  } catch (_) {}
+  orderItemDistributionPriceColumn = "";
+  return orderItemDistributionPriceColumn;
+}
+
 const ShopOrderItem = sequelize.define(
   "ShopOrderItem",
   {
@@ -87,6 +117,10 @@ async function listOrderItemsWithSkuSpuDistributionByOrderId(orderId, options = 
   if (!orderId || !String(orderId).trim()) {
     return [];
   }
+  const distributionPriceColumn = await resolveOrderItemDistributionPriceColumn();
+  const sharePriceSelect = distributionPriceColumn
+    ? `COALESCE(oi.\`${distributionPriceColumn}\`, dr.\`share_price\`) AS \`sharePrice\``
+    : "dr.`share_price` AS `sharePrice`";
   const rows = await sequelize.query(
     `SELECT
         oi.\`_id\` AS \`orderItemId\`,
@@ -98,7 +132,7 @@ async function listOrderItemsWithSkuSpuDistributionByOrderId(orderId, options = 
         s.\`image\` AS \`image\`,
         s.\`spu\` AS \`spuId\`,
         sp.\`name\` AS \`spuName\`,
-        dr.\`share_price\` AS \`sharePrice\`
+        ${sharePriceSelect}
       FROM \`shop_order_item\` oi
       INNER JOIN \`shop_sku\` s ON s.\`_id\` = oi.\`sku\`
       LEFT JOIN \`shop_spu\` sp ON sp.\`_id\` = s.\`spu\`
@@ -149,6 +183,7 @@ async function listOrderItemsWithSkuSpuByOrderIds(orderIds, options = {}) {
 
 module.exports = {
   ShopOrderItem,
+  resolveOrderItemDistributionPriceColumn,
   createOrderItem,
   createOrderItems,
   updateOrderItemById,
