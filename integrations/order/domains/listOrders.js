@@ -3,6 +3,7 @@ const { listOrders, countOrders } = require("../repos/shopOrderRepo");
 const {
   listOrderItemsWithSkuSpuDistributionByOrderIds,
 } = require("../repos/shopOrderItemRepo");
+const { listAttrValuesBySkuIds } = require("../repos/shopAttrValueRepo");
 
 async function listOrderPage(body) {
   const reqBody = body && typeof body === "object" ? body : {};
@@ -154,6 +155,27 @@ async function listOrderPage(body) {
     const orderById = new Map(records.map((r) => [r._id, r]));
     const itemRows = await listOrderItemsWithSkuSpuDistributionByOrderIds(orderIds);
 
+    const skuIds = Array.from(
+      new Set(
+        (itemRows || [])
+          .map((r) => (r?.skuId != null ? String(r.skuId).trim() : ""))
+          .filter(Boolean)
+      )
+    );
+    const attrValuesBySkuId = new Map();
+    if (skuIds.length) {
+      const attrRows = await listAttrValuesBySkuIds(skuIds);
+      for (const row of attrRows || []) {
+        const skuId = safeTrim(row?.skuId);
+        if (!skuId) continue;
+        const value = row?.value != null ? row.value : null;
+        if (value == null) continue;
+        const list = attrValuesBySkuId.get(skuId) || [];
+        list.push(value);
+        attrValuesBySkuId.set(skuId, list);
+      }
+    }
+
     for (const row of itemRows || []) {
       const orderId = row?.orderId != null ? String(row.orderId) : "";
       const order = orderById.get(orderId);
@@ -177,6 +199,7 @@ async function listOrderPage(body) {
               price: row?.price != null ? Number(row.price) : null,
               wholesale_price:
                 row?.wholesalePrice != null ? Number(row.wholesalePrice) : null,
+              attr_value: attrValuesBySkuId.get(skuId) || [],
               spu:
                 row?.spuId != null
                   ? {
