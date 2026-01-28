@@ -1,6 +1,8 @@
 const { safeTrim, buildError } = require("../utils/orderValidation");
 const { listOrders, countOrders } = require("../repos/shopOrderRepo");
-const { listOrderItemsWithSkuSpuByOrderIds } = require("../repos/shopOrderItemRepo");
+const {
+  listOrderItemsWithSkuSpuDistributionByOrderIds,
+} = require("../repos/shopOrderItemRepo");
 
 async function listOrderPage(body) {
   const reqBody = body && typeof body === "object" ? body : {};
@@ -150,7 +152,7 @@ async function listOrderPage(body) {
     }
 
     const orderById = new Map(records.map((r) => [r._id, r]));
-    const itemRows = await listOrderItemsWithSkuSpuByOrderIds(orderIds);
+    const itemRows = await listOrderItemsWithSkuSpuDistributionByOrderIds(orderIds);
 
     for (const row of itemRows || []) {
       const orderId = row?.orderId != null ? String(row.orderId) : "";
@@ -158,6 +160,12 @@ async function listOrderPage(body) {
       if (!order) continue;
 
       const skuId = row?.skuId != null ? String(row.skuId) : "";
+      const distributionRecordId =
+        row?.distributionRecordId != null ? String(row.distributionRecordId) : "";
+      const sharePrice =
+        row?.sharePrice != null && row.sharePrice !== ""
+          ? Number(row.sharePrice)
+          : null;
       order.orderItems.push({
         _id: row?.orderItemId != null ? String(row.orderItemId) : "",
         skuId,
@@ -176,6 +184,12 @@ async function listOrderPage(body) {
                       name: row?.spuName != null ? String(row.spuName) : null,
                     }
                   : null,
+            }
+          : null,
+        distribution_record: distributionRecordId
+          ? {
+              _id: distributionRecordId,
+              share_price: sharePrice,
             }
           : null,
       });

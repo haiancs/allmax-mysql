@@ -148,6 +148,46 @@ async function listOrderItemsWithSkuSpuDistributionByOrderId(orderId, options = 
   return rows || [];
 }
 
+async function listOrderItemsWithSkuSpuDistributionByOrderIds(orderIds, options = {}) {
+  if (!Array.isArray(orderIds) || !orderIds.length) {
+    return [];
+  }
+  const ids = orderIds.map((id) => String(id).trim()).filter(Boolean);
+  if (!ids.length) {
+    return [];
+  }
+  const distributionPriceColumn = await resolveOrderItemDistributionPriceColumn();
+  const sharePriceSelect = distributionPriceColumn
+    ? `COALESCE(oi.\`${distributionPriceColumn}\`, dr.\`share_price\`) AS \`sharePrice\``
+    : "dr.`share_price` AS `sharePrice`";
+  const rows = await sequelize.query(
+    `SELECT
+        oi.\`_id\` AS \`orderItemId\`,
+        oi.\`order\` AS \`orderId\`,
+        oi.\`sku\` AS \`skuId\`,
+        oi.\`count\` AS \`count\`,
+        oi.\`distribution_record\` AS \`distributionRecordId\`,
+        s.\`price\` AS \`price\`,
+        s.\`wholesale_price\` AS \`wholesalePrice\`,
+        s.\`image\` AS \`image\`,
+        s.\`spu\` AS \`spuId\`,
+        sp.\`name\` AS \`spuName\`,
+        ${sharePriceSelect}
+      FROM \`shop_order_item\` oi
+      INNER JOIN \`shop_sku\` s ON s.\`_id\` = oi.\`sku\`
+      LEFT JOIN \`shop_spu\` sp ON sp.\`_id\` = s.\`spu\`
+      LEFT JOIN \`shop_distribution_record\` dr ON dr.\`_id\` = oi.\`distribution_record\`
+      WHERE oi.\`order\` IN (:orderIds)
+      ORDER BY oi.\`order\` ASC, oi.\`_id\` ASC`,
+    {
+      replacements: { orderIds: ids },
+      type: QueryTypes.SELECT,
+      ...options,
+    }
+  );
+  return rows || [];
+}
+
 async function listOrderItemsWithSkuSpuByOrderIds(orderIds, options = {}) {
   if (!Array.isArray(orderIds) || !orderIds.length) {
     return [];
@@ -192,5 +232,6 @@ module.exports = {
   findOrderItemById,
   listOrderItems,
   listOrderItemsWithSkuSpuDistributionByOrderId,
+  listOrderItemsWithSkuSpuDistributionByOrderIds,
   listOrderItemsWithSkuSpuByOrderIds,
 };

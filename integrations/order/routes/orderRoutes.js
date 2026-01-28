@@ -8,6 +8,7 @@ const { cartSubmit } = require("../domains/cartSubmit");
 
 const router = express.Router();
 
+// 创建订单
 router.post("/orders", async (req, res) => {
   if (!checkConnection()) {
     return res.status(503).send({
@@ -24,6 +25,7 @@ router.post("/orders", async (req, res) => {
   return res.send(result.body);
 });
 
+// 取消订单
 router.post("/orders/:orderId/cancel", async (req, res) => {
   if (!checkConnection()) {
     return res.status(503).send({
@@ -40,6 +42,7 @@ router.post("/orders/:orderId/cancel", async (req, res) => {
   return res.send(result.body);
 });
 
+// 确认订单已收到
 router.post("/orders/:orderId/confirm-received", async (req, res) => {
   if (!checkConnection()) {
     return res.status(503).send({
@@ -56,6 +59,7 @@ router.post("/orders/:orderId/confirm-received", async (req, res) => {
   return res.send(result.body);
 });
 
+// 标记订单为已支付或待发货
 router.post("/orders/:orderId/mark-paid-or-to-send", async (req, res) => {
   if (!checkConnection()) {
     return res.status(503).send({
@@ -72,6 +76,7 @@ router.post("/orders/:orderId/mark-paid-or-to-send", async (req, res) => {
   return res.send(result.body);
 });
 
+// 提交购物车订单
 router.post("/cart/submit", async (req, res) => {
   if (!checkConnection()) {
     return res.status(503).send({
