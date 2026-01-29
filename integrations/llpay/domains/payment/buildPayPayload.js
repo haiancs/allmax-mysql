@@ -117,6 +117,20 @@ function buildPayPayload(options = {}) {
           },
         ];
 
+  try {
+    console.log("[LLPAY][buildPayPayload] payee_infos0:", payeeInfos);
+    const debugPayeeInfos = Array.isArray(payeeInfos)
+      ? payeeInfos.map((p) => ({
+          payee_uid: p.payee_uid,
+          payee_type: p.payee_type,
+          payee_accttype: p.payee_accttype,
+          payee_amount: p.payee_amount,
+        }))
+      : [];
+    // eslint-disable-next-line no-console
+    console.log("[LLPAY][buildPayPayload] payee_infos:", debugPayeeInfos);
+  } catch (_) {}
+
   const payload = {
     busi_type: options.busiType,
     goods_info: goodsInfo,

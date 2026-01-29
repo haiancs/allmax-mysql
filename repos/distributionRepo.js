@@ -262,12 +262,42 @@ async function resolvePayeeUidByDistributionRecordIds(recordIds) {
     return new Map();
   }
 
+  let accpIdColumn = "";
+  try {
+    const accpIdRows = await sequelize.query(
+      "SHOW COLUMNS FROM `users` LIKE 'accpId'",
+      { type: QueryTypes.SELECT }
+    );
+    if (Array.isArray(accpIdRows) && accpIdRows.length > 0) {
+      accpIdColumn = "accpId";
+    } else {
+      const accpIdSnakeRows = await sequelize.query(
+        "SHOW COLUMNS FROM `users` LIKE 'accp_id'",
+        { type: QueryTypes.SELECT }
+      );
+      if (Array.isArray(accpIdSnakeRows) && accpIdSnakeRows.length > 0) {
+        accpIdColumn = "accp_id";
+      }
+    }
+  } catch (_) {}
+
   const mapping = new Map();
   try {
-    const rows = await sequelize.query(
-      "SELECT `_id` AS `recordId`, `distributor` AS `payeeUid` FROM `shop_distribution_record` WHERE `_id` IN (:ids)",
-      { replacements: { ids }, type: QueryTypes.SELECT }
-    );
+    let rows;
+    if (accpIdColumn) {
+      rows = await sequelize.query(
+        `SELECT dr.\`_id\` AS \`recordId\`, u.\`${accpIdColumn}\` AS \`payeeUid\`
+         FROM \`shop_distribution_record\` dr
+         JOIN \`users\` u ON u.\`_id\` = dr.\`distributor\`
+         WHERE dr.\`_id\` IN (:ids)`,
+        { replacements: { ids }, type: QueryTypes.SELECT }
+      );
+    } else {
+      rows = await sequelize.query(
+        "SELECT `_id` AS `recordId`, `distributor` AS `payeeUid` FROM `shop_distribution_record` WHERE `_id` IN (:ids)",
+        { replacements: { ids }, type: QueryTypes.SELECT }
+      );
+    }
     for (const row of rows || []) {
       const recordId = safeTrim(row?.recordId);
       const payeeUid = safeTrim(row?.payeeUid);
