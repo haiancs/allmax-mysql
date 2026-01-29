@@ -88,6 +88,15 @@ async function securedQuery(body) {
   const subMchid = safeTrim(reqBody?.subMchid || reqBody?.sub_mchid);
   const mchId = safeTrim(reqBody?.mchId || reqBody?.mch_id);
 
+  console.log("[LLPAY][secured-query] resolved input", {
+    rawBody: body,
+    reqBody,
+    txnSeqno,
+    platformTxno,
+    subMchid,
+    mchId,
+  });
+
   if (!txnSeqno && !platformTxno) {
     return {
       ok: false,
@@ -106,17 +115,27 @@ async function securedQuery(body) {
   if (subMchid) payload.sub_mchid = subMchid;
   if (mchId) payload.mch_id = mchId;
 
+  console.log("[LLPAY][secured-query] outgoing payload to LLPay", payload);
+
   let result;
   try {
     result = await requestLLPayOpenapi({
       path: "/mch/v1/accp/txn/secured-query",
       method: "POST",
-      baseUrl: "https://openapi.lianlianpay.com",
+      baseUrl: "https://openapi.lianlianpay.com/query",
       body: payload,
     });
   } catch (error) {
     result = { ok: false, statusCode: 0, code: "NETWORK_ERROR", error: error?.message || "NETWORK_ERROR" };
   }
+
+  console.log("[LLPAY][secured-query] LLPay raw result", {
+    ok: result && result.ok,
+    statusCode: result && result.statusCode,
+    code: result && result.code,
+    error: result && result.error,
+    dataType: result && typeof result.data,
+  });
 
   if (!result.ok) {
     const errCode = result.code || null;

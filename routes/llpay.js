@@ -46,6 +46,12 @@ router.post("/order-query", async (req, res) => {
 });
 
 router.post("/secured-query", async (req, res) => {
+  console.log("[LLPAY][route] /api/llpay/secured-query incoming", {
+    method: req.method,
+    url: req.originalUrl,
+    headers: req.headers,
+    body: req.body,
+  });
   const result = await securedQuery(req.body);
   if (!result.ok) return res.status(result.httpStatus).send(result.body);
   return res.send(result.body);
