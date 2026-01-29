@@ -97,7 +97,7 @@ function buildPayPayload(options = {}) {
       ? [
           {
             payee_uid: partnerId,
-            payee_accttype: "MCHASSURE",
+            payee_accttype: "MCHOWN",
             payee_type: "MCH",
             payee_amount: ((orderAmountFenInt - totalDownstreamFen) / 100).toFixed(2),
           },
@@ -111,7 +111,7 @@ function buildPayPayload(options = {}) {
       : [
           {
             payee_uid: partnerId,
-            payee_accttype: "MCHASSURE",
+            payee_accttype: "MCHOWN",
             payee_type: "MCH",
             payee_amount: orderAmountStr,
           },

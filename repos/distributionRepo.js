@@ -283,21 +283,10 @@ async function resolvePayeeUidByDistributionRecordIds(recordIds) {
 
   const mapping = new Map();
   try {
-    let rows;
-    if (accpIdColumn) {
-      rows = await sequelize.query(
-        `SELECT dr.\`_id\` AS \`recordId\`, u.\`${accpIdColumn}\` AS \`payeeUid\`
-         FROM \`shop_distribution_record\` dr
-         JOIN \`users\` u ON u.\`_id\` = dr.\`distributor\`
-         WHERE dr.\`_id\` IN (:ids)`,
-        { replacements: { ids }, type: QueryTypes.SELECT }
-      );
-    } else {
-      rows = await sequelize.query(
-        "SELECT `_id` AS `recordId`, `distributor` AS `payeeUid` FROM `shop_distribution_record` WHERE `_id` IN (:ids)",
-        { replacements: { ids }, type: QueryTypes.SELECT }
-      );
-    }
+    const rows = await sequelize.query(
+      "SELECT `_id` AS `recordId`, `distributor` AS `payeeUid` FROM `shop_distribution_record` WHERE `_id` IN (:ids)",
+      { replacements: { ids }, type: QueryTypes.SELECT }
+    );
     for (const row of rows || []) {
       const recordId = safeTrim(row?.recordId);
       const payeeUid = safeTrim(row?.payeeUid);
