@@ -136,6 +136,7 @@ async function securedQuery(body) {
     error: result && result.error,
     dataType: result && typeof result.data,
   });
+  console.log("[LLPAY][secured-query] LLPay raw result", result);
 
   if (!result.ok) {
     const errCode = result.code || null;
