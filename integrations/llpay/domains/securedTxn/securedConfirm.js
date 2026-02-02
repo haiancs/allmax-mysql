@@ -94,13 +94,22 @@ async function securedConfirm(body) {
     };
   }
 
+  const originalOrderId = orderId || safeTrim(llpay?.txnSeqno);
+  if (!originalOrderId) {
+    return {
+      ok: false,
+      httpStatus: 400,
+      body: { code: -1, message: "orderId 必须存在", data: null },
+    };
+  }
+
   const confirmTxnSeqno = generateTxnSeqno("llpay_secured_confirm", txnSeqno);
   const confirmTxnTime = safeTrim(llpay?.txnTime) || formatDateTimeCN(new Date());
 
   const payload = {
-    original_orderInfo: { txn_seqno: orderId, order_amount: originalAmount },
+    original_orderInfo: { txn_seqno: originalOrderId, order_amount: originalAmount },
     confirm_orderInfo: {
-      txn_seqno: orderId,
+      txn_seqno: confirmTxnSeqno,
       txn_time: confirmTxnTime,
       order_amount: confirmAmount,
       confirm_mode: confirmMode,

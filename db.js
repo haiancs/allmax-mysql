@@ -25,6 +25,7 @@ async function init() {
     isConnected = true;
     console.log("数据库连接成功");
     await ensureRefundColumns();
+    await ensureLLPayV2Columns();
   } catch (error) {
     isConnected = false;
     console.error("数据库连接失败:", error.message);
@@ -70,6 +71,47 @@ async function ensureRefundColumns() {
         );
       } catch (_) {}
     }
+  }
+}
+
+async function ensureLLPayV2Columns() {
+  const table = "llpay_v2";
+  const columns = [
+    { name: "secured_confirm_txn_seqno", ddl: "VARCHAR(64) NULL" },
+    { name: "secured_confirm_txn_time", ddl: "VARCHAR(32) NULL" },
+  ];
+
+  let tableRows = [];
+  try {
+    tableRows = await sequelize.query("SHOW TABLES LIKE :table", {
+      replacements: { table },
+      type: QueryTypes.SELECT,
+    });
+  } catch (_) {
+    return;
+  }
+  if (!Array.isArray(tableRows) || tableRows.length === 0) {
+    return;
+  }
+
+  for (const column of columns) {
+    let colRows = [];
+    try {
+      colRows = await sequelize.query(
+        `SHOW COLUMNS FROM \`${table}\` LIKE :column`,
+        { replacements: { column: column.name }, type: QueryTypes.SELECT }
+      );
+    } catch (_) {
+      continue;
+    }
+    if (Array.isArray(colRows) && colRows.length > 0) {
+      continue;
+    }
+    try {
+      await sequelize.query(
+        `ALTER TABLE \`${table}\` ADD COLUMN \`${column.name}\` ${column.ddl}`
+      );
+    } catch (_) {}
   }
 }
 
