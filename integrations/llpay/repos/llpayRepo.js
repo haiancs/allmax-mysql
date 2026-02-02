@@ -11,7 +11,7 @@ async function findByTxnSeqno(txnSeqno) {
 
 async function findByOrderId(orderId) {
   const rows = await sequelize.query(
-    "SELECT `txnSeqno`, `orderId`, `userId`, `status`, `amountFen`, `platform_txno` AS `platformTxno`, `txnTime` FROM `llpay_v2` WHERE `orderId` = :orderId ORDER BY `id` DESC LIMIT 1",
+    "SELECT `txnSeqno`, `orderId`, `userId`, `status`, `amountFen`, `platform_txno` AS `platformTxno`, `txnTime` FROM `llpay_v2` WHERE `orderId` = :orderId LIMIT 1",
     { replacements: { orderId }, type: QueryTypes.SELECT }
   );
   return rows[0] || null;

@@ -11,6 +11,13 @@ function buildTxnSeqnoFromOrderId(orderId) {
   return digest.slice(0, 32);
 }
 
+function buildRefundSeqnoFromOrderId(orderId) {
+  const id = safeTrim(orderId);
+  if (!id) return "";
+  const digest = crypto.createHash("sha256").update(`llpay_refund:${id}`).digest("hex");
+  return digest.slice(0, 32);
+}
+
 function safeNumber(v, fallback) {
   const n = Number(v);
   return Number.isFinite(n) ? n : fallback;
@@ -170,6 +177,7 @@ function getLLPayHttpStatus(result) {
 module.exports = {
   safeTrim,
   buildTxnSeqnoFromOrderId,
+  buildRefundSeqnoFromOrderId,
   safeNumber,
   formatDateTimeCN,
   ensureTimestamp14,
