@@ -84,29 +84,12 @@ async function orderQuery(body) {
 }
 
 async function securedQuery(body) {
-  const txnSeqno = buildTxnSeqnoFromOrderId(body.orderId);
-  let resolvedTxnSeqno;
-  let llpay;
-  if (txnSeqno) {
-      llpay = await llpayRepo.findByTxnSeqno(txnSeqno);
-      console.log(llpay)
-      const stored = safeTrim(llpay?.securedConfirmTxnSeqno);
-      if (stored) resolvedTxnSeqno = stored;
-  }
-
-  const payload = {};
-  if (resolvedTxnSeqno) payload.txn_seqno = llpay.platformTxno;
-  if (llpay.platformTxno) payload.platform_txno = llpay.platformTxno;
-
-  console.log("[LLPAY][secured-query] outgoing payload to LLPay", payload);
-
-  let result;
   try {
     result = await requestLLPayOpenapi({
       path: "/mch/v1/accp/txn/secured-query",
       method: "POST",
       baseUrl: "https://openapi.lianlianpay.com/query",
-      body: payload,
+      body,
     });
   } catch (error) {
     result = { ok: false, statusCode: 0, code: "NETWORK_ERROR", error: error?.message || "NETWORK_ERROR" };
