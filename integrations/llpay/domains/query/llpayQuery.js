@@ -95,7 +95,7 @@ async function securedQuery(body) {
   }
 
   const payload = {};
-  if (resolvedTxnSeqno) payload.txn_seqno = resolvedTxnSeqno;
+  if (resolvedTxnSeqno) payload.txn_seqno = llpay.platformTxno;
   if (llpay.platformTxno) payload.platform_txno = llpay.platformTxno;
 
   console.log("[LLPAY][secured-query] outgoing payload to LLPay", payload);
