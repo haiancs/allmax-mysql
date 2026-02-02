@@ -14,6 +14,57 @@ const {
 const httpAgent = new http.Agent({ keepAlive: true });
 const httpsAgent = new https.Agent({ keepAlive: true });
 
+function shouldLogLLPayOpenapi() {
+  const v = process.env.LLPAY_OPENAPI_LOG;
+  if (v == null) return false;
+  const s = String(v).trim().toLowerCase();
+  return s === "1" || s === "true" || s === "yes" || s === "on";
+}
+
+function redactSensitive(value, depth = 0) {
+  if (depth > 6) return "[Truncated]";
+  if (value == null) return value;
+  if (typeof value !== "object") return value;
+  if (Array.isArray(value)) return value.map((v) => redactSensitive(v, depth + 1));
+  const out = {};
+  for (const [k, v] of Object.entries(value)) {
+    const key = String(k);
+    const lower = key.toLowerCase();
+    const isSecretKey =
+      lower.includes("signature") ||
+      lower.includes("private") ||
+      lower.includes("secret") ||
+      lower.includes("password") ||
+      lower === "pwd" ||
+      lower.includes("token") ||
+      lower.includes("key");
+    const isPiiKey =
+      lower.includes("card") ||
+      lower.includes("bank") ||
+      lower.includes("id_no") ||
+      lower.includes("idno") ||
+      lower.includes("phone") ||
+      lower.includes("mobile") ||
+      lower.includes("cvv");
+    if (isSecretKey || isPiiKey) {
+      out[key] = "***";
+      continue;
+    }
+    out[key] = redactSensitive(v, depth + 1);
+  }
+  return out;
+}
+
+function sanitizeRequestForLog({ url, headers, body }) {
+  const h = headers && typeof headers === "object" ? Object.assign({}, headers) : {};
+  if (h["Signature-Data"]) h["Signature-Data"] = "***";
+  return {
+    url,
+    headers: h,
+    body: redactSensitive(body),
+  };
+}
+
 async function requestLLPayOpenapi({ path, method, body, baseUrl } = {}) {
   try {
     const mchId = process.env.LLPAY_PARTNER_ID;
@@ -51,6 +102,12 @@ async function requestLLPayOpenapi({ path, method, body, baseUrl } = {}) {
       timestamp: ts,
       "Content-Type": "application/json;charset=utf-8",
     };
+    const requestForLog = sanitizeRequestForLog({ url, headers, body: reqBody });
+    if (shouldLogLLPayOpenapi()) {
+      try {
+        console.log("[LLPAY][openapi] request:", JSON.stringify(requestForLog));
+      } catch (_) {}
+    }
 
     let res;
     try {
@@ -82,6 +139,14 @@ async function requestLLPayOpenapi({ path, method, body, baseUrl } = {}) {
 
     const statusCode = res.status || 0;
     const ok = statusCode >= 200 && statusCode < 300;
+    if (shouldLogLLPayOpenapi()) {
+      try {
+        console.log(
+          "[LLPAY][openapi] response:",
+          JSON.stringify({ url, statusCode, ok, data: redactSensitive(res.data) })
+        );
+      } catch (_) {}
+    }
     return {
       ok,
       statusCode,
