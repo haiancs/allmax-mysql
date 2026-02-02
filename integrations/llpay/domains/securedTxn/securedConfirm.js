@@ -94,30 +94,18 @@ async function securedConfirm(body) {
     };
   }
 
-  const couponAmountRaw = reqBody?.couponAmount ?? reqBody?.coupon_amount;
-  const couponAmount =
-    couponAmountRaw == null ? null : Number(safeNumber(couponAmountRaw, NaN).toFixed(2));
-  if (couponAmount != null && (!Number.isFinite(couponAmount) || couponAmount < 0)) {
-    return {
-      ok: false,
-      httpStatus: 400,
-      body: { code: -1, message: "couponAmount 无效", data: null },
-    };
-  }
-
   const confirmTxnSeqno = generateTxnSeqno("llpay_secured_confirm", txnSeqno);
-  const confirmTxnTime = formatDateTimeCN(new Date());
+  const confirmTxnTime = safeTrim(llpay?.txnTime) || formatDateTimeCN(new Date());
 
   const payload = {
-    original_orderInfo: { txn_seqno: txnSeqno, order_amount: originalAmount },
+    original_orderInfo: { txn_seqno: orderId, order_amount: originalAmount },
     confirm_orderInfo: {
-      txn_seqno: confirmTxnSeqno,
+      txn_seqno: orderId,
       txn_time: confirmTxnTime,
       order_amount: confirmAmount,
       confirm_mode: confirmMode,
     },
   };
-  if (couponAmount != null) payload.confirm_orderInfo.coupon_amount = couponAmount;
 
   let forwardRes;
   try {
