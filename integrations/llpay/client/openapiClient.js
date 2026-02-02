@@ -127,6 +127,14 @@ async function requestLLPayOpenapi({ path, method, body, baseUrl } = {}) {
       const message =
         (error && typeof error.message === "string" && error.message) ||
         "NETWORK_ERROR";
+      if (shouldLogLLPayOpenapi()) {
+        try {
+          console.log(
+            "[LLPAY][openapi] network_error:",
+            JSON.stringify({ code, message, request: requestForLog })
+          );
+        } catch (_) {}
+      }
       return {
         ok: false,
         statusCode: 0,
