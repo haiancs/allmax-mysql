@@ -85,7 +85,7 @@ async function orderQuery(body) {
 
 async function securedQuery(body) {
   const reqBody = body && typeof body === "object" && !Array.isArray(body) ? body : {};
-  const txnSeqno = buildTxnSeqnoFromOrderId(orderId);
+  const txnSeqno = buildTxnSeqnoFromOrderId(body.orderId);
   let resolvedTxnSeqno;
   if (txnSeqno) {
       const llpay = await llpayRepo.findByTxnSeqno(txnSeqno);
