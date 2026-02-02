@@ -136,9 +136,17 @@ router.post("/secured-query", async (req, res) => {
     headers: req.headers,
     body: req.body,
   });
-  const result = await securedQuery(req.body);
-  if (!result.ok) return res.status(result.httpStatus).send(result.body);
-  return res.send(result.body);
+  try {
+    const result = await securedQuery(req.body);
+    if (!result.ok) return res.status(result.httpStatus).send(result.body);
+    return res.send(result.body);
+  } catch (error) {
+    return res.status(500).send({
+      code: -1,
+      message: error?.message || "担保交易查询异常",
+      data: null,
+    });
+  }
 });
 
 router.post("/openapi", async (req, res) => {

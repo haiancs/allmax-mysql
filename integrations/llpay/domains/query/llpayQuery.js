@@ -2,6 +2,7 @@ const { requestLLPayOpenapi } = require("../../client/openapiClient");
 const llpayRepo = require("../../repos/llpayRepo");
 const {
   safeTrim,
+  buildTxnSeqnoFromOrderId,
   tryParseJsonObject,
   getLLPayHttpStatus,
 } = require("../../../../utils/llpayRouteUtils");
