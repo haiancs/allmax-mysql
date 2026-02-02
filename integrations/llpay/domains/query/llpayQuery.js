@@ -84,23 +84,15 @@ async function orderQuery(body) {
 }
 
 async function securedQuery(body) {
-  const reqBody = body && typeof body === "object" && !Array.isArray(body) ? body : {};
   const txnSeqno = buildTxnSeqnoFromOrderId(body.orderId);
   let resolvedTxnSeqno;
+  let llpay;
   if (txnSeqno) {
-      const llpay = await llpayRepo.findByTxnSeqno(txnSeqno);
+      llpay = await llpayRepo.findByTxnSeqno(txnSeqno);
+      console.log(llpay)
       const stored = safeTrim(llpay?.securedConfirmTxnSeqno);
       if (stored) resolvedTxnSeqno = stored;
   }
-
-  console.log("[LLPAY][secured-query] resolved input", {
-    rawBody: body,
-    reqBody,
-    txnSeqno,
-    resolvedTxnSeqno,
-    subMchid,
-    mchId,
-  });
 
   const payload = {};
   if (resolvedTxnSeqno) payload.txn_seqno = resolvedTxnSeqno;
