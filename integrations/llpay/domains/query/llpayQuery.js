@@ -84,49 +84,26 @@ async function orderQuery(body) {
 
 async function securedQuery(body) {
   const reqBody = body && typeof body === "object" && !Array.isArray(body) ? body : {};
-  const txnSeqno = safeTrim(reqBody?.txnSeqno || reqBody?.txn_seqno);
-  const confirmTxnSeqno = safeTrim(reqBody?.confirmTxnSeqno || reqBody?.confirm_txn_seqno);
-  const platformTxno = safeTrim(reqBody?.platformTxno || reqBody?.platform_txno);
-  const subMchid = safeTrim(reqBody?.subMchid || reqBody?.sub_mchid);
-  const mchId = safeTrim(reqBody?.mchId || reqBody?.mch_id);
-
-  let resolvedTxnSeqno = confirmTxnSeqno || txnSeqno;
-  if (!confirmTxnSeqno && txnSeqno) {
-    try {
+  const txnSeqno = buildTxnSeqnoFromOrderId(orderId);
+  let resolvedTxnSeqno;
+  if (txnSeqno) {
       const llpay = await llpayRepo.findByTxnSeqno(txnSeqno);
       const stored = safeTrim(llpay?.securedConfirmTxnSeqno);
       if (stored) resolvedTxnSeqno = stored;
-    } catch (_) {}
   }
 
   console.log("[LLPAY][secured-query] resolved input", {
     rawBody: body,
     reqBody,
     txnSeqno,
-    confirmTxnSeqno,
     resolvedTxnSeqno,
-    platformTxno,
     subMchid,
     mchId,
   });
 
-  if (!resolvedTxnSeqno && !platformTxno) {
-    return {
-      ok: false,
-      httpStatus: 400,
-      body: {
-        code: -1,
-        message: "txnSeqno 或 platformTxno 必须存在",
-        data: null,
-      },
-    };
-  }
-
   const payload = {};
   if (resolvedTxnSeqno) payload.txn_seqno = resolvedTxnSeqno;
-  if (platformTxno) payload.platform_txno = platformTxno;
-  if (subMchid) payload.sub_mchid = subMchid;
-  if (mchId) payload.mch_id = mchId;
+  if (llpay.platformTxno) payload.platform_txno = llpay.platformTxno;
 
   console.log("[LLPAY][secured-query] outgoing payload to LLPay", payload);
 
