@@ -94,7 +94,7 @@ async function securedConfirm(body) {
     };
   }
 
-  const originalOrderId = orderId || safeTrim(llpay?.txnSeqno);
+  const originalOrderId = safeTrim(llpay?.txnSeqno);
   if (!originalOrderId) {
     return {
       ok: false,
