@@ -17,6 +17,14 @@ async function findByOrderId(orderId) {
   return rows[0] || null;
 }
 
+async function findById(id) {
+  const rows = await sequelize.query(
+    "SELECT `_id` AS `id`, `txnSeqno`, `orderId`, `userId`, `status`, `amountFen`, `platform_txno` AS `platformTxno`, `txnTime`, `secured_confirm_txn_seqno` AS `securedConfirmTxnSeqno`, `secured_confirm_txn_time` AS `securedConfirmTxnTime`, `createdAt`, `updatedAt` FROM `llpay_v2` WHERE `_id` = :id LIMIT 1",
+    { replacements: { id }, type: QueryTypes.SELECT }
+  );
+  return rows[0] || null;
+}
+
 async function updateStatus(txnSeqno, status, extraFields = {}) {
   try {
     const fields = Object.assign({}, extraFields || {}, { status });
@@ -49,6 +57,7 @@ async function recordSecuredConfirm(txnSeqno, confirmTxnSeqno, confirmTxnTime) {
 module.exports = {
   findByTxnSeqno,
   findByOrderId,
+  findById,
   updateStatus,
   recordSecuredConfirm,
 };

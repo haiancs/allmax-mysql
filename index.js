@@ -27,6 +27,7 @@ const shopCartRouter = require("./routes/shopCart");
 const llpayRouter = require("./routes/llpay");
 const llpaySecuredTxnRouter = require("./routes/llpay/securedTxnRoutes");
 const cainiaoRouter = require("./routes/cainiao");
+const adminRouter = require("./routes/admin");
 
 const logger = morgan("tiny");
 
@@ -45,6 +46,7 @@ app.use("/api/shop", refundRoutes);
 app.use("/api/llpay", llpayRouter);
 app.use("/api/llpay/accp/txn", llpaySecuredTxnRouter);
 app.use("/api/cainiao", cainiaoRouter);
+app.use("/api/admin", adminRouter);
 
 // 首页
 app.get("/", async (req, res) => {
