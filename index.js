@@ -34,7 +34,12 @@ const logger = morgan("tiny");
 const app = express();
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json({ limit: process.env.API_BODY_LIMIT || "256kb" }));
-app.use(cors());
+const corsOptions = {
+  origin: true,
+  methods: ["GET", "HEAD", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+};
+app.use(cors(corsOptions));
 app.use(logger);
 app.use("/api", orderQueryRoutes);
 app.use("/api/distribution", distributionRouter);
