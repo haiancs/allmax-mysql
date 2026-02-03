@@ -209,7 +209,7 @@ async function listUserOrders(userId, options = {}) {
         model: CommissionRecord,
       },
     ],
-    order: [["createdAt", "DESC"]],
+    order: [["createdTime", "DESC"]],
     ...options,
   });
 }

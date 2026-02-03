@@ -35,6 +35,14 @@ const User = sequelize.define(
       allowNull: true,
       field: "accpId",
     },
+    createdAt: {
+      type: DataTypes.DATE,
+      field: "createTime",
+    },
+    updatedAt: {
+      type: DataTypes.DATE,
+      field: "updateTime",
+    },
   },
   {
     tableName: "users",

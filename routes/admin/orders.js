@@ -37,7 +37,7 @@ router.get("/", async (req, res) => {
     listOrders(filter),
     countOrders(filter),
   ]);
-
+  console.log(items);
   return res.send({
     code: 0,
     data: {
