@@ -1,6 +1,6 @@
 const express = require("express");
 const {
-  listOrders,
+  listOrderWithTxnSeqno,
   countOrders,
   findOrderById,
 } = require("../../repos/shopOrderRepo");
@@ -34,7 +34,7 @@ router.post("/", async (req, res) => {
   };
 
   const [items, total] = await Promise.all([
-    listOrders(filter),
+    listOrderWithTxnSeqno(filter),
     countOrders(filter),
   ]);
   console.log(items);

@@ -1,5 +1,5 @@
 const { safeTrim, buildError } = require("../utils/orderValidation");
-const { listOrders, countOrders } = require("../repos/shopOrderRepo");
+const { listOrderWithTxnSeqno, countOrders } = require("../repos/shopOrderRepo");
 const {
   listOrderItemsWithSkuSpuDistributionByOrderIds,
 } = require("../repos/shopOrderItemRepo");
@@ -111,7 +111,7 @@ async function listOrderPage(body) {
       listFilter.statuses = uniqStatuses;
     }
 
-    const orderRows = await listOrders(listFilter, {
+    const orderRows = await listOrderWithTxnSeqno(listFilter, {
       attributes: [
         "id",
         "clientOrderNo",
@@ -130,6 +130,7 @@ async function listOrderPage(body) {
       return {
         _id: data?.id != null ? String(data.id) : "",
         clientOrderNo: data?.clientOrderNo != null ? String(data.clientOrderNo) : null,
+        txnSeqno: data?.txnSeqno != null ? String(data.txnSeqno) : null,
         status: data?.status != null ? String(data.status) : null,
         totalPrice: data?.totalPrice != null ? Number(data.totalPrice) : null,
         user: data?.userId != null ? String(data.userId) : null,

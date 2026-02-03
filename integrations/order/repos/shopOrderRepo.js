@@ -7,5 +7,6 @@ module.exports = {
   findOrderById: shopOrderRepo.findOrderById,
   findOrderByClientOrderNo: shopOrderRepo.findOrderByClientOrderNo,
   listOrders: shopOrderRepo.listOrders,
+  listOrderWithTxnSeqno: shopOrderRepo.listOrderWithTxnSeqno,
   countOrders: shopOrderRepo.countOrders,
 };
