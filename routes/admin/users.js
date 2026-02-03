@@ -3,11 +3,11 @@ const { User } = require("../../repos/userRepo");
 
 const router = express.Router();
 
-router.get("/", async (req, res) => {
-  const id = typeof req.query._id === "string" ? req.query._id.trim() : "";
-  const openid = typeof req.query.openid === "string" ? req.query.openid.trim() : "";
-  const phone = typeof req.query.phone === "string" ? req.query.phone.trim() : "";
-  const accpId = typeof req.query.accpId === "string" ? req.query.accpId.trim() : "";
+router.post("/", async (req, res) => {
+  const id = typeof req.body._id === "string" ? req.body._id.trim() : "";
+  const openid = typeof req.body.openid === "string" ? req.body.openid.trim() : "";
+  const phone = typeof req.body.phone === "string" ? req.body.phone.trim() : "";
+  const accpId = typeof req.body.accpId === "string" ? req.body.accpId.trim() : "";
 
   const where = {};
   if (id) {
@@ -23,8 +23,8 @@ router.get("/", async (req, res) => {
     where.accpId = accpId;
   }
 
-  const pageSizeRaw = req.query.pageSize;
-  const pageRaw = req.query.page;
+  const pageSizeRaw = req.body.pageSize;
+  const pageRaw = req.body.page;
   const pageSizeNum = Number(pageSizeRaw);
   const pageNum = Number(pageRaw);
   const pageSize =
@@ -54,7 +54,7 @@ router.get("/", async (req, res) => {
   });
 });
 
-router.get("/:id", async (req, res) => {
+router.post("/:id", async (req, res) => {
   const id = typeof req.params.id === "string" ? req.params.id.trim() : "";
   if (!id) {
     return res.status(400).send({

@@ -9,13 +9,13 @@ const { QueryTypes } = require("sequelize");
 
 const router = express.Router();
 
-router.get("/", async (req, res) => {
-  const id = typeof req.query._id === "string" ? req.query._id.trim() : "";
-  const status = typeof req.query.status === "string" ? req.query.status.trim() : "";
-  const userId = typeof req.query.userId === "string" ? req.query.userId.trim() : "";
+router.post("/", async (req, res) => {
+  const id = typeof req.body._id === "string" ? req.body._id.trim() : "";
+  const status = typeof req.body.status === "string" ? req.body.status.trim() : "";
+  const userId = typeof req.body.userId === "string" ? req.body.userId.trim() : "";
 
-  const pageSizeRaw = req.query.pageSize;
-  const pageRaw = req.query.page;
+  const pageSizeRaw = req.body.pageSize;
+  const pageRaw = req.body.page;
   const pageSizeNum = Number(pageSizeRaw);
   const pageNum = Number(pageRaw);
   const pageSize =
@@ -51,7 +51,7 @@ router.get("/", async (req, res) => {
   });
 });
 
-router.get("/:id", async (req, res) => {
+router.post("/:id", async (req, res) => {
   const id = typeof req.params.id === "string" ? req.params.id.trim() : "";
   if (!id) {
     return res.status(400).send({
