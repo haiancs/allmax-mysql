@@ -3,6 +3,7 @@ const { checkConnection } = require("../../db");
 const paymentsRouter = require("./payments");
 const ordersRouter = require("./orders");
 const usersRouter = require("./users");
+const productsRouter = require("./products");
 
 const router = express.Router();
 
@@ -20,6 +21,7 @@ router.use((req, res, next) => {
 router.use("/payments", paymentsRouter);
 router.use("/orders", ordersRouter);
 router.use("/users", usersRouter);
+router.use("/products", productsRouter);
 
 module.exports = router;
 
