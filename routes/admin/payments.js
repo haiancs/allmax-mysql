@@ -5,13 +5,13 @@ const { QueryTypes } = require("sequelize");
 
 const router = express.Router();
 
-router.post("/", async (req, res) => {
-  const id = typeof req.body._id === "string" ? req.body._id.trim() : "";
-  const orderId = typeof req.body.orderId === "string" ? req.body.orderId.trim() : "";
-  const txnSeqno = typeof req.body.txnSeqno === "string" ? req.body.txnSeqno.trim() : "";
+router.get("/", async (req, res) => {
+  const id = typeof req.query._id === "string" ? req.query._id.trim() : "";
+  const orderId = typeof req.query.orderId === "string" ? req.query.orderId.trim() : "";
+  const txnSeqno = typeof req.query.txnSeqno === "string" ? req.query.txnSeqno.trim() : "";
   const platformTxno =
-    typeof req.body.platformTxno === "string" ? req.body.platformTxno.trim() : "";
-  const status = typeof req.body.status === "string" ? req.body.status.trim() : "";
+    typeof req.query.platformTxno === "string" ? req.query.platformTxno.trim() : "";
+  const status = typeof req.query.status === "string" ? req.query.status.trim() : "";
 
   const where = [];
   const replacements = {};
@@ -37,8 +37,8 @@ router.post("/", async (req, res) => {
     replacements.status = status;
   }
 
-  const pageSizeRaw = req.body.pageSize;
-  const pageRaw = req.body.page;
+  const pageSizeRaw = req.query.pageSize;
+  const pageRaw = req.query.page;
   const pageSizeNum = Number(pageSizeRaw);
   const pageNum = Number(pageRaw);
   const pageSize =
@@ -80,7 +80,7 @@ router.post("/", async (req, res) => {
   });
 });
 
-router.post("/:id", async (req, res) => {
+router.get("/:id", async (req, res) => {
   const id = typeof req.params.id === "string" ? req.params.id.trim() : "";
   if (!id) {
     return res.status(400).send({
