@@ -8,6 +8,9 @@ const {
   orderQuery,
   securedQuery,
 } = require("../integrations/llpay/domains/query/llpayQuery");
+const {
+  individualOpenAcctApply,
+} = require("../integrations/llpay/domains/customer/accpCustomer");
 
 const refundTableColumnsCache = new Map();
 
@@ -125,6 +128,19 @@ router.post("/refund-notify", async (req, res) => {
 
 router.post("/order-query", async (req, res) => {
   const result = await orderQuery(req.body);
+  if (!result.ok) return res.status(result.httpStatus).send(result.body);
+  return res.send(result.body);
+});
+
+router.post("/openacct/individual-apply", async (req, res) => {
+  if (!checkConnection()) {
+    return res.status(503).send({
+      code: -1,
+      message: "数据库未连接，请检查配置",
+      data: null,
+    });
+  }
+  const result = await individualOpenAcctApply(req.body);
   if (!result.ok) return res.status(result.httpStatus).send(result.body);
   return res.send(result.body);
 });
