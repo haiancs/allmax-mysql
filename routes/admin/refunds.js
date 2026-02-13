@@ -12,6 +12,8 @@ const {
 const { refundApply } = require("../../integrations/llpay/domains/refund/refund");
 const { checkConnection } = require("../../db");
 
+const router = express.Router();
+
 // Reusing enums from existing business logic
 const RefundStatus = {
   TO_AUDIT: 10,
