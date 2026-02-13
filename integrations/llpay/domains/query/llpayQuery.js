@@ -1,8 +1,6 @@
 const { requestLLPayOpenapi } = require("../../client/openapiClient");
-const llpayRepo = require("../../repos/llpayRepo");
 const {
   safeTrim,
-  buildTxnSeqnoFromOrderId,
   tryParseJsonObject,
   getLLPayHttpStatus,
 } = require("../../../../utils/llpayRouteUtils");
@@ -145,7 +143,41 @@ async function securedQuery(body) {
   };
 }
 
+async function refundQuery(body) {
+  let result;
+  try {
+    result = await requestLLPayOpenapi({
+      path: "/query/v1/ipay/refundquery",
+      method: "POST",
+      baseUrl: "https://openapi.lianlianpay.com",
+      body,
+    });
+  } catch (error) {
+    result = { ok: false, statusCode: 0, code: "NETWORK_ERROR", error: error?.message || "NETWORK_ERROR" };
+  }
+
+  if (!result.ok) {
+    const httpStatus = getLLPayHttpStatus(result);
+    return {
+      ok: false,
+      httpStatus,
+      body: {
+        code: -1,
+        message: result.error || "连连请求失败",
+        data: result.data || null,
+      },
+    };
+  }
+
+  return {
+    ok: true,
+    httpStatus: 200,
+    body: { code: 0, data: result.data },
+  };
+}
+
 module.exports = {
   orderQuery,
   securedQuery,
+  refundQuery,
 };

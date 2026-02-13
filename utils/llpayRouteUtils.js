@@ -11,6 +11,20 @@ function buildTxnSeqnoFromOrderId(orderId) {
   return digest.slice(0, 32);
 }
 
+function buildCustomsSeqnoFromOrderId(orderId) {
+  const id = safeTrim(orderId);
+  if (!id) return "";
+  const digest = crypto.createHash("sha256").update(`customs:${id}`).digest("hex");
+  return digest.slice(0, 32);
+}
+
+function buildUserSeqnoFromUserId(userId) {
+  const id = safeTrim(userId);
+  if (!id) return "";
+  const digest = crypto.createHash("sha256").update(`user:${id}`).digest("hex");
+  return digest.slice(0, 32);
+}
+
 function buildRefundSeqnoFromOrderId(orderId) {
   const id = safeTrim(orderId);
   if (!id) return "";
@@ -188,4 +202,6 @@ module.exports = {
   parseTimestamp14ToMs,
   resolvePayParamsExpireTimeMs,
   getLLPayHttpStatus,
+  buildCustomsSeqnoFromOrderId,
+  buildUserSeqnoFromUserId
 };

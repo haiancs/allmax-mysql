@@ -4,6 +4,7 @@ const { createOrder } = require("../domains/createOrder");
 const { cancelOrder } = require("../domains/cancelOrder");
 const { confirmReceived } = require("../domains/confirmReceived");
 const { markPaidOrToSend } = require("../domains/markPaidOrToSend");
+const { updateOrderStatus } = require("../domains/updateOrderStatus");
 const { cartSubmit } = require("../domains/cartSubmit");
 
 const router = express.Router();
@@ -70,6 +71,25 @@ router.post("/orders/:orderId/mark-paid-or-to-send", async (req, res) => {
   }
 
   const result = await markPaidOrToSend({ orderId: req.params.orderId, body: req.body });
+  if (!result.ok) {
+    return res.status(result.httpStatus).send(result.body);
+  }
+  return res.send(result.body);
+});
+
+router.post("/orders/:orderId/status", async (req, res) => {
+  if (!checkConnection()) {
+    return res.status(503).send({
+      code: -1,
+      message: "数据库未连接，请检查配置",
+      data: null,
+    });
+  }
+
+  const result = await updateOrderStatus({
+    orderId: req.params.orderId,
+    body: req.body,
+  });
   if (!result.ok) {
     return res.status(result.httpStatus).send(result.body);
   }

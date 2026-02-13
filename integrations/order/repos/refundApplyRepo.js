@@ -90,6 +90,14 @@ async function insertRefundApply(data) {
   if (itemsKey) {
     pushValue(itemsKey, normalizeJsonValue(data.items));
   }
+  const imageUrlsKey = pickFirstColumn(columns, ["image_urls", "imageUrls"]);
+  if (imageUrlsKey) {
+    pushValue(imageUrlsKey, normalizeJsonValue(data.imageUrls));
+  }
+  const refundMemoKey = pickFirstColumn(columns, ["refund_memo", "refundMemo"]);
+  if (refundMemoKey) {
+    pushValue(refundMemoKey, data.refundMemo);
+  }
   const createdAtKey = pickFirstColumn(columns, ["created_at", "createdAt"]);
   const updatedAtKey = pickFirstColumn(columns, ["updated_at", "updatedAt"]);
   if (createdAtKey) pushValue(createdAtKey, data.createdAt || new Date());
@@ -229,7 +237,7 @@ async function getRefundApply({ refundNo, orderId }) {
   }
 }
 
-async function listRefundApplies({ status, orderId, refundNo, limit, offset }) {
+async function listRefundApplies({ status, orderId, refundNo, userId, limit, offset }) {
   const columns = await getTableColumns("refund_apply");
   if (!columns) {
     return buildError(500, "refund_apply 表不存在");
@@ -242,6 +250,8 @@ async function listRefundApplies({ status, orderId, refundNo, limit, offset }) {
   ]);
   const orderIdKey = pickFirstColumn(columns, ["order_id", "orderId"]);
   const statusKey = pickFirstColumn(columns, ["status"]);
+  const userIdKey = pickFirstColumn(columns, ["user_id", "userId", "user"]);
+
   const whereParts = [];
   const replacements = {};
   if (status != null) {
@@ -264,6 +274,13 @@ async function listRefundApplies({ status, orderId, refundNo, limit, offset }) {
     }
     whereParts.push(`\`${orderIdKey}\` = :order_id`);
     replacements.order_id = orderId;
+  }
+  if (userId) {
+    if (!userIdKey) {
+      return buildError(500, "refund_apply 缺少 user_id 字段");
+    }
+    whereParts.push(`\`${userIdKey}\` = :user_id`);
+    replacements.user_id = userId;
   }
   const whereSql = whereParts.length ? ` WHERE ${whereParts.join(" AND ")}` : "";
   const orderKey = pickFirstColumn(columns, [

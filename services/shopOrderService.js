@@ -24,6 +24,25 @@ function createHttpError(statusCode, message) {
   return error;
 }
 
+const allowedOrderStatuses = new Set([
+  "TO_PAY",
+  "TO_SEND",
+  "TO_RECEIVE",
+  "FINISHED",
+  "CANCELED",
+  "RETURN_APPLIED",
+  "RETURN_REFUSED",
+  "RETURN_FINISH",
+  "RETURN_MONEY_REFUSED",
+]);
+const restockOrderStatuses = new Set([
+  "CANCELED",
+  "RETURN_APPLIED",
+  "RETURN_REFUSED",
+  "RETURN_FINISH",
+  "RETURN_MONEY_REFUSED",
+]);
+
 function isDuplicateKeyError(error) {
   const code = error?.original?.code || error?.parent?.code || error?.code;
   return code === "ER_DUP_ENTRY";
@@ -884,10 +903,141 @@ async function markOrderPaidOrToSendInTransaction({ orderId, nowMs }, transactio
   };
 }
 
+async function updateOrderStatusInTransaction(
+  { orderId, status, nowMs },
+  transaction
+) {
+  const normalizedOrderId =
+    typeof orderId === "string" && orderId.trim() ? orderId.trim() : "";
+  const normalizedStatus =
+    typeof status === "string" && status.trim() ? status.trim() : "";
+
+  if (!normalizedOrderId) {
+    throw createHttpError(400, "orderId 必须存在");
+  }
+
+  if (normalizedOrderId.length > 64) {
+    throw createHttpError(400, "orderId 长度不能超过 64");
+  }
+
+  if (!normalizedStatus) {
+    throw createHttpError(400, "status 必须存在");
+  }
+
+  if (normalizedStatus.length > 64) {
+    throw createHttpError(400, "status 长度不能超过 64");
+  }
+
+  if (!allowedOrderStatuses.has(normalizedStatus)) {
+    throw createHttpError(400, `status 无效: ${normalizedStatus}`);
+  }
+
+  const orderRows = await sequelize.query(
+    "SELECT `_id`, `clientOrderNo`, `status`, `totalPrice`, `user`, `orderExpireTime`, `delivery_info`, `createdAt`, `updatedAt` FROM `shop_order` WHERE `_id` = ? LIMIT 1",
+    {
+      replacements: [normalizedOrderId],
+      type: QueryTypes.SELECT,
+      transaction,
+    }
+  );
+  const order = orderRows[0] || null;
+  if (!order) {
+    throw createHttpError(404, "订单不存在");
+  }
+
+  const orderStatus = order?.status != null ? String(order.status).trim() : "";
+  const shouldRestock =
+    restockOrderStatuses.has(normalizedStatus) &&
+    !restockOrderStatuses.has(orderStatus) &&
+    orderStatus !== normalizedStatus;
+  let didUpdate = false;
+  if (orderStatus === normalizedStatus) {
+    didUpdate = false;
+  } else {
+    const [_, metadata] = await sequelize.query(
+      "UPDATE `shop_order` SET `status` = ?, `updatedAt` = ? WHERE `_id` = ? LIMIT 1",
+      {
+        replacements: [normalizedStatus, nowMs, normalizedOrderId],
+        transaction,
+      }
+    );
+    const affectedRows =
+      metadata && typeof metadata.affectedRows === "number"
+        ? metadata.affectedRows
+        : 0;
+    if (!affectedRows) {
+      const latestRows = await sequelize.query(
+        "SELECT `status` FROM `shop_order` WHERE `_id` = ? LIMIT 1",
+        {
+          replacements: [normalizedOrderId],
+          type: QueryTypes.SELECT,
+          transaction,
+        }
+      );
+      const latestStatus =
+        latestRows[0]?.status != null ? String(latestRows[0].status).trim() : "";
+      if (latestStatus === normalizedStatus) {
+        didUpdate = false;
+      } else {
+        throw createHttpError(409, "订单状态已变更");
+      }
+    } else {
+      didUpdate = true;
+    }
+  }
+
+  if (didUpdate && shouldRestock) {
+    const itemRows = await sequelize.query(
+      "SELECT `sku`, `count` FROM `shop_order_item` WHERE `order` = ?",
+      {
+        replacements: [normalizedOrderId],
+        type: QueryTypes.SELECT,
+        transaction,
+      }
+    );
+
+    const mergedBySkuId = new Map();
+    for (const row of itemRows || []) {
+      const skuId = row?.sku != null ? String(row.sku).trim() : "";
+      const qty = Number(row?.count || 0);
+      if (!skuId || !Number.isFinite(qty) || qty <= 0) continue;
+      const prev = mergedBySkuId.get(skuId) || 0;
+      mergedBySkuId.set(skuId, prev + qty);
+    }
+
+    const items = Array.from(mergedBySkuId.entries()).map(([skuId, quantity]) => ({
+      skuId,
+      quantity,
+    }));
+
+    if (items.length) {
+      const affectedRows = await bulkIncrementSkuStock(items, transaction);
+      if (affectedRows !== items.length) {
+        throw createHttpError(500, "回补库存失败");
+      }
+    }
+  }
+
+  const updatedRows = await sequelize.query(
+    "SELECT `_id`, `clientOrderNo`, `status`, `totalPrice`, `user`, `orderExpireTime`, `delivery_info`, `createdAt`, `updatedAt` FROM `shop_order` WHERE `_id` = ? LIMIT 1",
+    {
+      replacements: [normalizedOrderId],
+      type: QueryTypes.SELECT,
+      transaction,
+    }
+  );
+
+  return {
+    order: updatedRows[0] || order,
+    isIdempotentHit: !didUpdate,
+  };
+}
+
 module.exports = {
   createShopOrderInTransaction,
   cancelShopOrderInTransaction,
   confirmOrderReceivedInTransaction,
   markOrderPaidOrToSendInTransaction,
+  updateOrderStatusInTransaction,
   createHttpError,
 };

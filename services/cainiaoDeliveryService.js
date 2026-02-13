@@ -4,7 +4,12 @@
 // - createCainiaoDeliveryOrder：组装/校验通过后调用 utils/cainiaoClient.js 发送到菜鸟网关
 const { QueryTypes } = require("sequelize");
 const { requestCainiao } = require("../utils/cainiaoClient");
-const { safeTrim, coerceIntOrNull, toFenFromYuanOrFen } = require("../utils/envUtils");
+const {
+  safeTrim,
+  coerceIntOrNull,
+  toFenFromYuanOrFen,
+  splitVatInclusiveFen,
+} = require("../utils/envUtils");
 
 // 格式化日期时间为中国时间（东八区）的文本表示
 function formatDateTimeCNText(date) {
@@ -166,16 +171,6 @@ function getCainiaoEnv() {
   return cfg;
 }
 
-const VAT_INCLUSIVE_FACTOR_NUM = 1091;
-const VAT_INCLUSIVE_FACTOR_DEN = 1000;
-function splitVatInclusiveFen(grossFen) {
-  const gross = Math.max(0, coerceIntOrNull(grossFen) || 0);
-  let net = Math.round((gross * VAT_INCLUSIVE_FACTOR_DEN) / VAT_INCLUSIVE_FACTOR_NUM);
-  if (net < 0) net = 0;
-  if (net > gross) net = gross;
-  const vat = gross - net;
-  return { netFen: net, vatFen: vat };
-}
 // 校验菜鸟订单 已测试
 function validateDeliveryOrder(order) {
   const missing = [];
@@ -495,8 +490,7 @@ async function buildDeliveryOrderFromDb({ sequelize, orderId, overrides }) {
       itemQuantity: quantity,
       declareInfo,
       extItemId: skuId || undefined,
-      // itemId: safeTrim(row?.cargoId) || "",
-      itemId: "610240611644",
+      itemId: safeTrim(row?.cargoId) || "",// 需要注意
       itemName: safeTrim(row?.spuName) || undefined,
     };
   });

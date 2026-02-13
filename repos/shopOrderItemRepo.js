@@ -2,6 +2,7 @@ const { DataTypes, QueryTypes } = require("sequelize");
 const { sequelize } = require("../db");
 
 let orderItemDistributionPriceColumn = null;
+let orderItemColumnsCache = null;
 async function resolveOrderItemDistributionPriceColumn(options = {}) {
   const transaction = options?.transaction;
   if (orderItemDistributionPriceColumn !== null) {
@@ -29,6 +30,53 @@ async function resolveOrderItemDistributionPriceColumn(options = {}) {
   } catch (_) {}
   orderItemDistributionPriceColumn = "";
   return orderItemDistributionPriceColumn;
+}
+
+async function getOrderItemColumns(options = {}) {
+  const transaction = options?.transaction;
+  if (orderItemColumnsCache) {
+    return orderItemColumnsCache;
+  }
+  try {
+    const rows = await sequelize.query("SHOW COLUMNS FROM `shop_order_item`", {
+      type: QueryTypes.SELECT,
+      transaction,
+    });
+    const columns = (rows || [])
+      .map((row) => row?.Field)
+      .filter((field) => typeof field === "string" && field.length > 0);
+    orderItemColumnsCache = columns;
+    return columns;
+  } catch (_) {
+    orderItemColumnsCache = null;
+    return null;
+  }
+}
+
+function pickFirstColumn(columns, candidates) {
+  const colSet = new Set(columns || []);
+  for (const key of candidates) {
+    if (colSet.has(key)) return key;
+  }
+  return "";
+}
+
+async function resolveOrderItemStatusColumn(options = {}) {
+  const columns = await getOrderItemColumns(options);
+  if (!columns) return "";
+  return pickFirstColumn(columns, [
+    "after_service_status",
+    "afterServiceStatus",
+    "refund_status",
+    "refundStatus",
+    "status",
+  ]);
+}
+
+async function resolveOrderItemUpdatedAtColumn(options = {}) {
+  const columns = await getOrderItemColumns(options);
+  if (!columns) return "";
+  return pickFirstColumn(columns, ["updated_at", "updatedAt"]);
 }
 
 const ShopOrderItem = sequelize.define(
@@ -221,6 +269,98 @@ async function listOrderItemsWithSkuSpuByOrderIds(orderIds, options = {}) {
   return rows || [];
 }
 
+async function updateOrderItemStatusByIds({ orderItemIds, status }, options = {}) {
+  const ids = Array.isArray(orderItemIds)
+    ? orderItemIds.map((id) => String(id).trim()).filter(Boolean)
+    : [];
+  if (!ids.length) {
+    return { ok: true, affectedRows: 0, skipped: true };
+  }
+  const statusKey = await resolveOrderItemStatusColumn(options);
+  if (!statusKey) {
+    return { ok: true, affectedRows: 0, skipped: true };
+  }
+  const updatedAtKey = await resolveOrderItemUpdatedAtColumn(options);
+  const replacements = { status, ids };
+  if (updatedAtKey) {
+    replacements.updated_at = new Date();
+  }
+  const setParts = [`\`${statusKey}\` = :status`];
+  if (updatedAtKey) setParts.push(`\`${updatedAtKey}\` = :updated_at`);
+  const sql = `UPDATE \`shop_order_item\` SET ${setParts.join(
+    ", "
+  )} WHERE \`_id\` IN (:ids)`;
+  const [, metadata] = await sequelize.query(sql, {
+    replacements,
+    transaction: options.transaction,
+  });
+  const affectedRows =
+    metadata && typeof metadata.affectedRows === "number" ? metadata.affectedRows : 0;
+  return { ok: true, affectedRows, skipped: false };
+}
+
+async function updateOrderItemStatusByOrderId({ orderId, status }, options = {}) {
+  const normalizedOrderId = typeof orderId === "string" ? orderId.trim() : "";
+  if (!normalizedOrderId) {
+    return { ok: true, affectedRows: 0, skipped: true };
+  }
+  const statusKey = await resolveOrderItemStatusColumn(options);
+  if (!statusKey) {
+    return { ok: true, affectedRows: 0, skipped: true };
+  }
+  const updatedAtKey = await resolveOrderItemUpdatedAtColumn(options);
+  const replacements = { status, orderId: normalizedOrderId };
+  if (updatedAtKey) {
+    replacements.updated_at = new Date();
+  }
+  const setParts = [`\`${statusKey}\` = :status`];
+  if (updatedAtKey) setParts.push(`\`${updatedAtKey}\` = :updated_at`);
+  const sql = `UPDATE \`shop_order_item\` SET ${setParts.join(
+    ", "
+  )} WHERE \`order\` = :orderId`;
+  const [, metadata] = await sequelize.query(sql, {
+    replacements,
+    transaction: options.transaction,
+  });
+  const affectedRows =
+    metadata && typeof metadata.affectedRows === "number" ? metadata.affectedRows : 0;
+  return { ok: true, affectedRows, skipped: false };
+}
+
+async function updateOrderItemStatusByOrderIdAndSkuIds(
+  { orderId, skuIds, status },
+  options = {}
+) {
+  const normalizedOrderId = typeof orderId === "string" ? orderId.trim() : "";
+  const ids = Array.isArray(skuIds)
+    ? skuIds.map((id) => String(id).trim()).filter(Boolean)
+    : [];
+  if (!normalizedOrderId || !ids.length) {
+    return { ok: true, affectedRows: 0, skipped: true };
+  }
+  const statusKey = await resolveOrderItemStatusColumn(options);
+  if (!statusKey) {
+    return { ok: true, affectedRows: 0, skipped: true };
+  }
+  const updatedAtKey = await resolveOrderItemUpdatedAtColumn(options);
+  const replacements = { status, orderId: normalizedOrderId, skuIds: ids };
+  if (updatedAtKey) {
+    replacements.updated_at = new Date();
+  }
+  const setParts = [`\`${statusKey}\` = :status`];
+  if (updatedAtKey) setParts.push(`\`${updatedAtKey}\` = :updated_at`);
+  const sql = `UPDATE \`shop_order_item\` SET ${setParts.join(
+    ", "
+  )} WHERE \`order\` = :orderId AND \`sku\` IN (:skuIds)`;
+  const [, metadata] = await sequelize.query(sql, {
+    replacements,
+    transaction: options.transaction,
+  });
+  const affectedRows =
+    metadata && typeof metadata.affectedRows === "number" ? metadata.affectedRows : 0;
+  return { ok: true, affectedRows, skipped: false };
+}
+
 module.exports = {
   ShopOrderItem,
   resolveOrderItemDistributionPriceColumn,
@@ -234,4 +374,7 @@ module.exports = {
   listOrderItemsWithSkuSpuDistributionByOrderId,
   listOrderItemsWithSkuSpuDistributionByOrderIds,
   listOrderItemsWithSkuSpuByOrderIds,
+  updateOrderItemStatusByIds,
+  updateOrderItemStatusByOrderId,
+  updateOrderItemStatusByOrderIdAndSkuIds,
 };

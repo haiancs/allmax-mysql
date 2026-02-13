@@ -6,6 +6,7 @@ const {
 } = require("../../repos/shopOrderRepo");
 const { sequelize } = require("../../db");
 const { QueryTypes } = require("sequelize");
+const { updateOrderStatusInTransaction } = require("../../services/shopOrderService");
 
 const router = express.Router();
 
@@ -108,6 +109,47 @@ router.get("/:id", async (req, res) => {
       payment,
     },
   });
+});
+
+router.post("/:id/status", async (req, res) => {
+  const id = typeof req.params.id === "string" ? req.params.id.trim() : "";
+  const status = typeof req.body?.status === "string" ? req.body.status.trim() : "";
+  if (!id) {
+    return res.status(400).send({
+      code: -1,
+      message: "id 必须存在",
+      data: null,
+    });
+  }
+  if (!status) {
+    return res.status(400).send({
+      code: -1,
+      message: "status 必须存在",
+      data: null,
+    });
+  }
+  const nowMs = Date.now();
+  try {
+    const result = await sequelize.transaction((transaction) =>
+      updateOrderStatusInTransaction(
+        {
+          orderId: id,
+          status,
+          nowMs,
+        },
+        transaction
+      )
+    );
+    return res.send({ code: 0, data: result });
+  } catch (error) {
+    const statusCode =
+      typeof error?.statusCode === "number" ? error.statusCode : 500;
+    return res.status(statusCode).send({
+      code: -1,
+      message: error?.message || "更新订单状态失败",
+      data: null,
+    });
+  }
 });
 
 module.exports = router;

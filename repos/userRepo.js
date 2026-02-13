@@ -52,5 +52,7 @@ const User = sequelize.define(
 
 module.exports = {
   User,
+  findUserById(id, options = {}) {
+    return User.findByPk(id, options);
+  },
 };
-

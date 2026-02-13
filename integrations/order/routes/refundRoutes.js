@@ -14,6 +14,11 @@ const {
   getRefundApply,
   listRefundApplies,
 } = require("../repos/refundApplyRepo");
+const {
+  updateOrderItemStatusByIds,
+  updateOrderItemStatusByOrderId,
+  updateOrderItemStatusByOrderIdAndSkuIds,
+} = require("../repos/shopOrderItemRepo");
 
 const AfterServiceStatus = {
   TO_AUDIT: 10,
@@ -23,8 +28,68 @@ const AfterServiceStatus = {
   COMPLETE: 50,
   CLOSED: 60,
 };
+const OrderItemAfterServiceStatus = {
+  TO_AUDIT: 10,
+  THE_APPROVED: 20,
+  CLOSED: 60,
+};
 
 const router = express.Router();
+
+function normalizeRefundItems(raw) {
+  if (Array.isArray(raw)) return raw;
+  if (raw && typeof raw === "object") return [];
+  if (typeof raw !== "string" || !raw.trim()) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function collectRefundItemTargets(items) {
+  const orderItemIds = new Set();
+  const skuIds = new Set();
+  for (const item of Array.isArray(items) ? items : []) {
+    if (!item || typeof item !== "object") continue;
+    const orderItemId =
+      item.orderItemId ||
+      item.order_item_id ||
+      item.orderItemID ||
+      item.orderItemid ||
+      item.order_item ||
+      item.orderItem ||
+      item.id ||
+      item._id;
+    const skuId = item.skuId || item.sku_id || item.sku;
+    if (orderItemId != null && String(orderItemId).trim()) {
+      orderItemIds.add(String(orderItemId).trim());
+    }
+    if (skuId != null && String(skuId).trim()) {
+      skuIds.add(String(skuId).trim());
+    }
+  }
+  return {
+    orderItemIds: Array.from(orderItemIds),
+    skuIds: Array.from(skuIds),
+  };
+}
+
+async function updateOrderItemsStatus({ orderId, items, status }) {
+  const targets = collectRefundItemTargets(items);
+  if (targets.orderItemIds.length) {
+    return updateOrderItemStatusByIds({ orderItemIds: targets.orderItemIds, status });
+  }
+  if (targets.skuIds.length) {
+    return updateOrderItemStatusByOrderIdAndSkuIds({
+      orderId,
+      skuIds: targets.skuIds,
+      status,
+    });
+  }
+  return updateOrderItemStatusByOrderId({ orderId, status });
+}
 
 router.post("/refund/apply", async (req, res) => {
   if (!checkConnection()) {
@@ -39,6 +104,8 @@ router.post("/refund/apply", async (req, res) => {
   const orderId = safeTrim(body.orderId || body.order_id || body.id);
   const refundReason = safeTrim(body.refundReason || body.refund_reason);
   const items = Array.isArray(body.items) ? body.items : [];
+  const imageUrls = Array.isArray(body.imageUrls) ? body.imageUrls : [];
+  const refundMemo = safeTrim(body.refundMemo || body.refund_memo);
 
   if (!orderId) {
     const err = buildError(400, "orderId 必须存在");
@@ -101,12 +168,20 @@ router.post("/refund/apply", async (req, res) => {
     status: AfterServiceStatus.TO_AUDIT,
     userId: safeTrim(order?.user),
     items,
+    imageUrls,
+    refundMemo,
     createdAt: new Date(),
     updatedAt: new Date(),
   });
   if (!insertRes.ok) {
     return res.status(insertRes.httpStatus).send(insertRes.body);
   }
+
+  await updateOrderItemsStatus({
+    orderId,
+    items,
+    status: OrderItemAfterServiceStatus.TO_AUDIT,
+  });
 
   const detailRes = await getRefundApply({ refundNo, orderId });
   if (!detailRes.ok) {
@@ -147,11 +222,13 @@ router.post("/refund/list", async (req, res) => {
   const refundNo = safeTrim(
     body.refundNo || body.refund_no || body.refundSeqno || body.refund_seqno
   );
+  const userId = safeTrim(body.userId || body.user_id || body.user);
   const offset = (pageNumber - 1) * pageSize;
   const listRes = await listRefundApplies({
     status,
     orderId: orderId || null,
     refundNo: refundNo || null,
+    userId: userId || null,
     limit: pageSize,
     offset,
   });
@@ -159,6 +236,62 @@ router.post("/refund/list", async (req, res) => {
     return res.status(listRes.httpStatus).send(listRes.body);
   }
   return res.send({ code: 0, data: { records: listRes.rows, total: listRes.total } });
+});
+
+router.post("/refund/cancel", async (req, res) => {
+  if (!checkConnection()) {
+    return res.status(503).send({
+      code: -1,
+      message: "数据库未连接，请检查配置",
+      data: null,
+    });
+  }
+  const body = req.body && typeof req.body === "object" ? req.body : {};
+  const refundNo = safeTrim(
+    body.refundNo || body.refund_no || body.refundSeqno || body.refund_seqno
+  );
+  const orderId = safeTrim(body.orderId || body.order_id);
+  const detailRes = await getRefundApply({ refundNo, orderId });
+  if (!detailRes.ok) {
+    return res.status(detailRes.httpStatus).send(detailRes.body);
+  }
+  const row = detailRes.row;
+  if (!row) {
+    return res.status(404).send({ code: -1, message: "退款单不存在", data: null });
+  }
+
+  const statusRaw = row?.status;
+  const statusNum = Number(statusRaw);
+  if (Number.isFinite(statusNum) && statusNum !== AfterServiceStatus.TO_AUDIT) {
+    return res.status(400).send({
+      code: -1,
+      message: "退款单状态不允许取消",
+      data: null,
+    });
+  }
+
+  const updateRes = await updateRefundApply(
+    { refundNo, orderId },
+    {
+      status: AfterServiceStatus.CLOSED,
+      updatedAt: new Date(),
+    }
+  );
+
+  if (!updateRes.ok) {
+    return res.status(updateRes.httpStatus).send(updateRes.body);
+  }
+
+  const rowItems = normalizeRefundItems(
+    row?.items || row?.item_list || row?.refund_items
+  );
+  await updateOrderItemsStatus({
+    orderId: row?.order_id || row?.orderId || orderId,
+    items: rowItems.length ? rowItems : body.items,
+    status: OrderItemAfterServiceStatus.CLOSED,
+  });
+
+  return res.send({ code: 0, data: { refundNo, status: AfterServiceStatus.CLOSED } });
 });
 
 router.post("/refund/detail", async (req, res) => {
@@ -261,6 +394,14 @@ router.post("/refund/approve", async (req, res) => {
   if (!updateRes.ok) {
     return res.status(updateRes.httpStatus).send(updateRes.body);
   }
+  const rowItems = normalizeRefundItems(
+    row?.items || row?.item_list || row?.refund_items
+  );
+  await updateOrderItemsStatus({
+    orderId: orderIdFromRow,
+    items: rowItems.length ? rowItems : body.items,
+    status: OrderItemAfterServiceStatus.THE_APPROVED,
+  });
   return res.send({ code: 0, data: applyRes.body });
 });
 
@@ -288,6 +429,19 @@ router.post("/refund/reject", async (req, res) => {
   );
   if (!updateRes.ok) {
     return res.status(updateRes.httpStatus).send(updateRes.body);
+  }
+  if (updateRes.affectedRows) {
+    const detailRes = await getRefundApply({ refundNo, orderId });
+    const rowItems = detailRes.ok
+      ? normalizeRefundItems(
+          detailRes.row?.items || detailRes.row?.item_list || detailRes.row?.refund_items
+        )
+      : [];
+    await updateOrderItemsStatus({
+      orderId,
+      items: rowItems.length ? rowItems : body.items,
+      status: OrderItemAfterServiceStatus.CLOSED,
+    });
   }
   if (!updateRes.affectedRows) {
     return res.status(404).send({ code: -1, message: "退款单不存在", data: null });
