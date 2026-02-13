@@ -91,7 +91,7 @@ async function updateOrderItemsStatus({ orderId, items, status }) {
   return updateOrderItemStatusByOrderId({ orderId, status });
 }
 
-router.post("/refund/apply", async (req, res) => {
+router.post("/apply", async (req, res) => {
   if (!checkConnection()) {
     return res.status(503).send({
       code: -1,
@@ -294,7 +294,7 @@ router.post("/refund/cancel", async (req, res) => {
   return res.send({ code: 0, data: { refundNo, status: AfterServiceStatus.CLOSED } });
 });
 
-router.post("/refund/detail", async (req, res) => {
+router.post("/detail", async (req, res) => {
   if (!checkConnection()) {
     return res.status(503).send({
       code: -1,

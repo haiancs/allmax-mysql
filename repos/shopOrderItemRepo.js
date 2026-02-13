@@ -107,6 +107,12 @@ const ShopOrderItem = sequelize.define(
       allowNull: true,
       field: "distribution_record",
     },
+    afterServiceStatus: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: 0,
+      field: "after_service_status",
+    },
   },
   {
     tableName: "shop_order_item",
@@ -169,6 +175,10 @@ async function listOrderItemsWithSkuSpuDistributionByOrderId(orderId, options = 
   const sharePriceSelect = distributionPriceColumn
     ? `COALESCE(oi.\`${distributionPriceColumn}\`, dr.\`share_price\`) AS \`sharePrice\``
     : "dr.`share_price` AS `sharePrice`";
+  const statusKey = await resolveOrderItemStatusColumn();
+  const statusSelect = statusKey
+    ? `oi.\`${statusKey}\` AS \`afterServiceStatus\``
+    : "0 AS `afterServiceStatus`";
   const rows = await sequelize.query(
     `SELECT
         oi.\`_id\` AS \`orderItemId\`,
@@ -180,7 +190,8 @@ async function listOrderItemsWithSkuSpuDistributionByOrderId(orderId, options = 
         s.\`image\` AS \`image\`,
         s.\`spu\` AS \`spuId\`,
         sp.\`name\` AS \`spuName\`,
-        ${sharePriceSelect}
+        ${sharePriceSelect},
+        ${statusSelect}
       FROM \`shop_order_item\` oi
       INNER JOIN \`shop_sku\` s ON s.\`_id\` = oi.\`sku\`
       LEFT JOIN \`shop_spu\` sp ON sp.\`_id\` = s.\`spu\`
@@ -208,6 +219,10 @@ async function listOrderItemsWithSkuSpuDistributionByOrderIds(orderIds, options 
   const sharePriceSelect = distributionPriceColumn
     ? `COALESCE(oi.\`${distributionPriceColumn}\`, dr.\`share_price\`) AS \`sharePrice\``
     : "dr.`share_price` AS `sharePrice`";
+  const statusKey = await resolveOrderItemStatusColumn();
+  const statusSelect = statusKey
+    ? `oi.\`${statusKey}\` AS \`afterServiceStatus\``
+    : "0 AS `afterServiceStatus`";
   const rows = await sequelize.query(
     `SELECT
         oi.\`_id\` AS \`orderItemId\`,
@@ -220,7 +235,8 @@ async function listOrderItemsWithSkuSpuDistributionByOrderIds(orderIds, options 
         s.\`image\` AS \`image\`,
         s.\`spu\` AS \`spuId\`,
         sp.\`name\` AS \`spuName\`,
-        ${sharePriceSelect}
+        ${sharePriceSelect},
+        ${statusSelect}
       FROM \`shop_order_item\` oi
       INNER JOIN \`shop_sku\` s ON s.\`_id\` = oi.\`sku\`
       LEFT JOIN \`shop_spu\` sp ON sp.\`_id\` = s.\`spu\`
@@ -244,6 +260,10 @@ async function listOrderItemsWithSkuSpuByOrderIds(orderIds, options = {}) {
   if (!ids.length) {
     return [];
   }
+  const statusKey = await resolveOrderItemStatusColumn();
+  const statusSelect = statusKey
+    ? `oi.\`${statusKey}\` AS \`afterServiceStatus\``
+    : "0 AS `afterServiceStatus`";
   const rows = await sequelize.query(
     `SELECT
         oi.\`_id\` AS \`orderItemId\`,
@@ -254,7 +274,8 @@ async function listOrderItemsWithSkuSpuByOrderIds(orderIds, options = {}) {
         s.\`wholesale_price\` AS \`wholesalePrice\`,
         s.\`image\` AS \`image\`,
         s.\`spu\` AS \`spuId\`,
-        sp.\`name\` AS \`spuName\`
+        sp.\`name\` AS \`spuName\`,
+        ${statusSelect}
       FROM \`shop_order_item\` oi
       INNER JOIN \`shop_sku\` s ON s.\`_id\` = oi.\`sku\`
       LEFT JOIN \`shop_spu\` sp ON sp.\`_id\` = s.\`spu\`

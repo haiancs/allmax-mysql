@@ -47,7 +47,7 @@ app.use("/api/shop", shopRouter);
 app.use("/api/shop", shopSkuAttrRouter);
 app.use("/api/shop", shopCartRouter);
 app.use("/api/shop", orderRoutes);
-app.use("/api/shop", refundRoutes);
+app.use("/api/shop/refund", refundRoutes);
 app.use("/api/llpay", llpayRouter);
 app.use("/api/llpay/accp/txn", llpaySecuredTxnRouter);
 app.use("/api/cainiao", cainiaoRouter);
