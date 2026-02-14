@@ -433,17 +433,23 @@ router.post("/refund/approve", async (req, res) => {
         ? String(row.refundReason)
         : safeTrim(body.refundReason || body.refund_reason);
 
+  const rowItems = normalizeRefundItems(
+    row?.items || row?.item_list || row?.refund_items
+  );
+
   const applyRes = await refundApply({
     order_id: orderIdFromRow,
     refund_reason: refundReason,
     refund_seqno: refundNo || row?.refund_no || row?.refundNo || row?.refund_seqno || row?.refundSeqno,
+    refund_items: rowItems,
   });
 
   if (!applyRes.ok) {
     const updateRes = await updateRefundApply(
       { refundNo, orderId: orderIdFromRow },
       {
-        status: AfterServiceStatus.CLOSED,
+        // 连连退款失败，保持 TO_AUDIT 状态，允许重新审核/发起
+        // status: AfterServiceStatus.CLOSED, 
         auditResult: applyRes.body,
         updatedAt: new Date(),
       }
@@ -465,9 +471,7 @@ router.post("/refund/approve", async (req, res) => {
   if (!updateRes.ok) {
     return res.status(updateRes.httpStatus).send(updateRes.body);
   }
-  const rowItems = normalizeRefundItems(
-    row?.items || row?.item_list || row?.refund_items
-  );
+  // rowItems defined above
   await updateOrderItemsStatus({
     orderId: orderIdFromRow,
     items: rowItems.length ? rowItems : body.items,

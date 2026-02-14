@@ -107,6 +107,20 @@ const ShopOrderItem = sequelize.define(
       defaultValue: "",
       field: "after_service_id",
     },
+    distributionPrice: {
+      type: DataTypes.DOUBLE,
+      allowNull: true,
+      field: "distribution_price",
+    },
+    price: {
+      type: DataTypes.DOUBLE,
+      allowNull: true,
+    },
+    wholesalePrice: {
+      type: DataTypes.DOUBLE,
+      allowNull: true,
+      field: "wholesale_price",
+    },
   },
   {
     tableName: "shop_order_item",
@@ -167,8 +181,8 @@ async function listOrderItemsWithSkuSpuDistributionByOrderId(orderId, options = 
   }
   const distributionPriceColumn = await resolveOrderItemDistributionPriceColumn();
   const sharePriceSelect = distributionPriceColumn
-    ? `COALESCE(oi.\`${distributionPriceColumn}\`, dr.\`share_price\`) AS \`sharePrice\``
-    : "dr.`share_price` AS `sharePrice`";
+    ? `COALESCE(oi.\`${distributionPriceColumn}\`, dr.\`share_price\`) AS \`sharePrice\`, oi.\`${distributionPriceColumn}\` AS \`distributionPrice\``
+    : "dr.`share_price` AS `sharePrice`, NULL AS `distributionPrice`";
   const statusKey = "after_service_status";
   const statusSelect = statusKey
     ? `oi.\`${statusKey}\` AS \`afterServiceStatus\`, oi.\`after_service_id\` AS \`afterServiceId\``
@@ -179,8 +193,10 @@ async function listOrderItemsWithSkuSpuDistributionByOrderId(orderId, options = 
         oi.\`sku\` AS \`skuId\`,
         oi.\`count\` AS \`count\`,
         oi.\`distribution_record\` AS \`distributionRecordId\`,
-        s.\`price\` AS \`price\`,
-        s.\`wholesale_price\` AS \`wholesalePrice\`,
+        s.\`price\` AS \`currentRetailPrice\`,
+        COALESCE(oi.\`price\`, s.\`price\`) AS \`price\`,
+        s.\`wholesale_price\` AS \`currentWholesalePrice\`,
+        COALESCE(oi.\`wholesale_price\`, s.\`wholesale_price\`) AS \`wholesalePrice\`,
         s.\`image\` AS \`image\`,
         s.\`spu\` AS \`spuId\`,
         s.\`description\` AS \`skuDescription\`,
@@ -212,8 +228,8 @@ async function listOrderItemsWithSkuSpuDistributionByOrderIds(orderIds, options 
   }
   const distributionPriceColumn = await resolveOrderItemDistributionPriceColumn();
   const sharePriceSelect = distributionPriceColumn
-    ? `COALESCE(oi.\`${distributionPriceColumn}\`, dr.\`share_price\`) AS \`sharePrice\``
-    : "dr.`share_price` AS `sharePrice`";
+    ? `COALESCE(oi.\`${distributionPriceColumn}\`, dr.\`share_price\`) AS \`sharePrice\`, oi.\`${distributionPriceColumn}\` AS \`distributionPrice\``
+    : "dr.`share_price` AS `sharePrice`, NULL AS `distributionPrice`";
   const statusKey = "after_service_status";
   const statusSelect = statusKey
     ? `oi.\`${statusKey}\` AS \`afterServiceStatus\`, oi.\`after_service_id\` AS \`afterServiceId\``
@@ -225,8 +241,10 @@ async function listOrderItemsWithSkuSpuDistributionByOrderIds(orderIds, options 
         oi.\`sku\` AS \`skuId\`,
         oi.\`count\` AS \`count\`,
         oi.\`distribution_record\` AS \`distributionRecordId\`,
-        s.\`price\` AS \`price\`,
-        s.\`wholesale_price\` AS \`wholesalePrice\`,
+        s.\`price\` AS \`currentRetailPrice\`,
+        COALESCE(oi.\`price\`, s.\`price\`) AS \`price\`,
+        s.\`wholesale_price\` AS \`currentWholesalePrice\`,
+        COALESCE(oi.\`wholesale_price\`, s.\`wholesale_price\`) AS \`wholesalePrice\`,
         s.\`image\` AS \`image\`,
         s.\`spu\` AS \`spuId\`,
         s.\`description\` AS \`skuDescription\`,
@@ -266,8 +284,10 @@ async function listOrderItemsWithSkuSpuByOrderIds(orderIds, options = {}) {
         oi.\`order\` AS \`orderId\`,
         oi.\`sku\` AS \`skuId\`,
         oi.\`count\` AS \`count\`,
-        s.\`price\` AS \`price\`,
-        s.\`wholesale_price\` AS \`wholesalePrice\`,
+        s.\`price\` AS \`currentRetailPrice\`,
+        COALESCE(oi.\`price\`, s.\`price\`) AS \`price\`,
+        s.\`wholesale_price\` AS \`currentWholesalePrice\`,
+        COALESCE(oi.\`wholesale_price\`, s.\`wholesale_price\`) AS \`wholesalePrice\`,
         s.\`image\` AS \`image\`,
         s.\`spu\` AS \`spuId\`,
         s.\`description\` AS \`skuDescription\`,
@@ -317,13 +337,18 @@ async function updateOrderItemStatusByIds(
   const sql = `UPDATE \`shop_order_item\` SET ${setParts.join(
     ", "
   )} WHERE \`_id\` IN (:ids)`;
-  const [, metadata] = await sequelize.query(sql, {
-    replacements,
-    transaction: options.transaction,
-  });
-  const affectedRows =
-    metadata && typeof metadata.affectedRows === "number" ? metadata.affectedRows : 0;
-  return { ok: true, affectedRows, skipped: false };
+  try {
+    const [, metadata] = await sequelize.query(sql, {
+      replacements,
+      transaction: options.transaction,
+    });
+    const affectedRows =
+      metadata && typeof metadata.affectedRows === "number" ? metadata.affectedRows : 0;
+    return { ok: true, affectedRows, skipped: false };
+  } catch (error) {
+    console.error("updateOrderItemStatusByIds error:", error);
+    return { ok: false, affectedRows: 0, skipped: false, error };
+  }
 }
 
 async function updateOrderItemStatusByOrderId(
@@ -354,13 +379,18 @@ async function updateOrderItemStatusByOrderId(
   const sql = `UPDATE \`shop_order_item\` SET ${setParts.join(
     ", "
   )} WHERE \`order\` = :orderId`;
-  const [, metadata] = await sequelize.query(sql, {
-    replacements,
-    transaction: options.transaction,
-  });
-  const affectedRows =
-    metadata && typeof metadata.affectedRows === "number" ? metadata.affectedRows : 0;
-  return { ok: true, affectedRows, skipped: false };
+  try {
+    const [, metadata] = await sequelize.query(sql, {
+      replacements,
+      transaction: options.transaction,
+    });
+    const affectedRows =
+      metadata && typeof metadata.affectedRows === "number" ? metadata.affectedRows : 0;
+    return { ok: true, affectedRows, skipped: false };
+  } catch (error) {
+    console.error("updateOrderItemStatusByOrderId error:", error);
+    return { ok: false, affectedRows: 0, skipped: false, error };
+  }
 }
 
 async function updateOrderItemStatusByOrderIdAndSkuIds(
@@ -394,13 +424,18 @@ async function updateOrderItemStatusByOrderIdAndSkuIds(
   const sql = `UPDATE \`shop_order_item\` SET ${setParts.join(
     ", "
   )} WHERE \`order\` = :orderId AND \`sku\` IN (:skuIds)`;
-  const [, metadata] = await sequelize.query(sql, {
-    replacements,
-    transaction: options.transaction,
-  });
-  const affectedRows =
-    metadata && typeof metadata.affectedRows === "number" ? metadata.affectedRows : 0;
-  return { ok: true, affectedRows, skipped: false };
+  try {
+    const [, metadata] = await sequelize.query(sql, {
+      replacements,
+      transaction: options.transaction,
+    });
+    const affectedRows =
+      metadata && typeof metadata.affectedRows === "number" ? metadata.affectedRows : 0;
+    return { ok: true, affectedRows, skipped: false };
+  } catch (error) {
+    console.error("updateOrderItemStatusByOrderIdAndSkuIds error:", error);
+    return { ok: false, affectedRows: 0, skipped: false, error };
+  }
 }
 
 module.exports = {

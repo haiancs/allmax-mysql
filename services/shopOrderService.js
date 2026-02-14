@@ -520,6 +520,8 @@ async function createShopOrderInTransaction(
       "`sku`",
       "`count`",
       "`distribution_record`",
+      "`price`",
+      "`wholesale_price`",
     ];
     if (distributionPriceColumn) {
       orderItemColumns.push(`\`${distributionPriceColumn}\``);
@@ -530,12 +532,19 @@ async function createShopOrderInTransaction(
       .join(", ");
     const replacements = [];
     for (const item of orderItemsToInsert) {
+      // 查找当前 SKU 的价格快照
+      const skuData = skuById.get(item.skuId);
+      const snapshotPrice = skuData ? skuData.price : null;
+      const snapshotWholesalePrice = skuData ? skuData.wholesalePrice : null;
+
       replacements.push(
         generateId(),
         orderId,
         item.skuId,
         item.quantity,
         item.distributionRecordId,
+        snapshotPrice,
+        snapshotWholesalePrice,
         ...(distributionPriceColumn ? [item.distributionPrice] : []),
         nowMs,
         nowMs

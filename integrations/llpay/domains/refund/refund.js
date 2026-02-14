@@ -39,6 +39,7 @@ async function refundApply(body) {
   let refundMethodInfos = reqBody?.refund_method_infos;
   let payeeRefundInfos = reqBody?.payee_refund_infos;
   let txnDate = safeTrim(reqBody?.txn_date || reqBody?.txnDate);
+  const refundItems = Array.isArray(reqBody?.refund_items) ? reqBody.refund_items : [];
 
 
 
@@ -126,26 +127,85 @@ async function refundApply(body) {
     }
 
     const items = await listOrderItemsWithSkuSpuDistributionByOrderId(orderId);
+    console.log("[LLPAY_REFUND] items:", JSON.stringify(items));
     const recordIds = items.map((it) => safeTrim(it?.distributionRecordId)).filter(Boolean);
     const recordPayeeUidById = await resolvePayeeUidByDistributionRecordIds(recordIds);
+    console.log("[LLPAY_REFUND] recordPayeeUidById:", recordPayeeUidById);
     const partnerId = safeTrim(process.env.LLPAY_PARTNER_ID);
+    console.log("[LLPAY_REFUND] partnerId:", partnerId);
     const downstreamFenByPayeeUid = new Map();
     for (const it of items) {
-      const qty = Math.max(0, Math.floor(Number(it?.count || 0)));
+      let qty = 0;
+      if (refundItems.length > 0) {
+        const match = refundItems.find(
+          (ri) =>
+            String(ri.skuId || ri.sku_id || ri.sku) === String(it.skuId) ||
+            String(ri.orderItemId || ri.order_item_id || ri.id) === String(it.orderItemId)
+        );
+        if (match) {
+          qty = Math.max(
+            0,
+            Math.floor(
+              Number(
+                match.rightsQuantity || match.quantity || match.count || match.num || 0
+              )
+            )
+          );
+        }
+      } else {
+        qty = Math.max(0, Math.floor(Number(it?.count || 0)));
+      }
+      console.log(`[LLPAY_REFUND] Item ${it.skuId} qty:`, qty);
+
       if (!(qty > 0)) continue;
-      const sharePrice = safeNumber(it?.sharePrice, NaN);
+      // 修复：优先使用快照价格 distributionPrice，其次使用 itemPrice (当前售价)，最后使用 sharePrice (当前分销价)
+      // 如果数据表中 distribution_price 被正确设置了，这里就会使用它。
+      // 对于旧数据，如果用户手动在数据库中补充了 distribution_price，也能被识别到。
+      const itemPrice = safeNumber(it?.price, NaN); 
+      const distPrice = safeNumber(it?.distributionPrice, NaN);
+      const rawSharePrice = safeNumber(it?.sharePrice, NaN);
+
+      // 逻辑优先级：distributionPrice (快照) > itemPrice (通常分销订单售价=分销价) > sharePrice (关联查询的当前分销价)
+      // 注意：sharePrice 已经在 SQL 中做过 COALESCE(distribution_price, share_price) 了，所以如果 distribution_price 有值，sharePrice 也是那个值。
+      // 但如果 distribution_price 是 NULL，sharePrice 就是当前 dr.share_price (可能不准)。
+      // 此时我们更相信 itemPrice (用户实际支付的单价)。
+      // 所以：
+      // 1. 如果 distributionPrice 有效，用它 (it.sharePrice 应该也等于它)。
+      // 2. 如果 distributionPrice 无效，比较 itemPrice 和 rawSharePrice。
+      //    如果 rawSharePrice 极小(如0.2)，明显不对，用 itemPrice。
+      //    如果 rawSharePrice 合理，用 rawSharePrice？
+      //    实际上，对于分销订单，用户支付的就是分销价。所以 itemPrice 应该是最准的“当时的分销价”。
+      
+      let effectiveSharePrice = itemPrice;
+      if (Number.isFinite(distPrice) && distPrice > 0) {
+        effectiveSharePrice = distPrice;
+      } else if (Number.isFinite(itemPrice) && itemPrice > 0) {
+        effectiveSharePrice = itemPrice;
+      } else if (Number.isFinite(rawSharePrice) && rawSharePrice > 0) {
+        effectiveSharePrice = rawSharePrice;
+      }
+
+      const sharePrice = effectiveSharePrice;
+
       const wholesalePrice = safeNumber(it?.wholesalePrice, NaN);
+      console.log(`[LLPAY_REFUND] Item ${it.skuId} prices: price=${itemPrice}, distPrice=${distPrice}, rawShare=${rawSharePrice}, effectiveShare=${sharePrice}, wholesale=${wholesalePrice}`);
+      
       if (!Number.isFinite(sharePrice) || !Number.isFinite(wholesalePrice)) continue;
       if (!(sharePrice >= wholesalePrice)) continue;
-      const diffFen = Math.round((sharePrice - wholesalePrice) * 100);
+      const shareFen = Math.round(sharePrice * 100);
+      const wholesaleFen = Math.round(wholesalePrice * 100);
+      const diffFen = shareFen - wholesaleFen;
+      console.log(`[LLPAY_REFUND] Item ${it.skuId} diffFen:`, diffFen);
       if (!(diffFen > 0)) continue;
       const recordId = safeTrim(it?.distributionRecordId);
       const payeeUidRaw = recordId ? recordPayeeUidById.get(recordId) || "" : "";
       const payeeUid = safeTrim(payeeUidRaw);
+      console.log(`[LLPAY_REFUND] Item ${it.skuId} payeeUid:`, payeeUid);
       if (!payeeUid || (partnerId && payeeUid === partnerId)) continue;
       const prev = downstreamFenByPayeeUid.get(payeeUid) || 0;
       downstreamFenByPayeeUid.set(payeeUid, prev + diffFen * qty);
     }
+    console.log("[LLPAY_REFUND] downstreamFenByPayeeUid:", downstreamFenByPayeeUid);
     const downstreamEntries = Array.from(downstreamFenByPayeeUid.entries()).filter(
       ([, fen]) => Number.isInteger(fen) && fen > 0
     );

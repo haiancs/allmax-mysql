@@ -174,7 +174,7 @@ router.post("/:refundNo/approve", async (req, res) => {
     await updateRefundApply(
       { refundNo, orderId },
       {
-        status: RefundStatus.CLOSED,
+        // status: RefundStatus.CLOSED,
         auditResult: applyRes.body,
         updatedAt: new Date(),
       }
