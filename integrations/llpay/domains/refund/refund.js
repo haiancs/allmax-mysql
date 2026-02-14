@@ -171,7 +171,7 @@ async function refundApply(body) {
           : [
               {
                 payee_uid: partnerId,
-                payee_accttype: "MCHASSURE",
+                payee_accttype: "MCHOWN",
                 payee_type: "MCH",
                 payee_amount: refundAmount,
               },
