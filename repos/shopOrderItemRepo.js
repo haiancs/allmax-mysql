@@ -61,18 +61,6 @@ function pickFirstColumn(columns, candidates) {
   return "";
 }
 
-async function resolveOrderItemStatusColumn(options = {}) {
-  const columns = await getOrderItemColumns(options);
-  if (!columns) return "";
-  return pickFirstColumn(columns, [
-    "after_service_status",
-    "afterServiceStatus",
-    "refund_status",
-    "refundStatus",
-    "status",
-  ]);
-}
-
 async function resolveOrderItemUpdatedAtColumn(options = {}) {
   const columns = await getOrderItemColumns(options);
   if (!columns) return "";
@@ -175,7 +163,7 @@ async function listOrderItemsWithSkuSpuDistributionByOrderId(orderId, options = 
   const sharePriceSelect = distributionPriceColumn
     ? `COALESCE(oi.\`${distributionPriceColumn}\`, dr.\`share_price\`) AS \`sharePrice\``
     : "dr.`share_price` AS `sharePrice`";
-  const statusKey = await resolveOrderItemStatusColumn();
+  const statusKey = "after_service_status";
   const statusSelect = statusKey
     ? `oi.\`${statusKey}\` AS \`afterServiceStatus\``
     : "0 AS `afterServiceStatus`";
@@ -219,7 +207,7 @@ async function listOrderItemsWithSkuSpuDistributionByOrderIds(orderIds, options 
   const sharePriceSelect = distributionPriceColumn
     ? `COALESCE(oi.\`${distributionPriceColumn}\`, dr.\`share_price\`) AS \`sharePrice\``
     : "dr.`share_price` AS `sharePrice`";
-  const statusKey = await resolveOrderItemStatusColumn();
+  const statusKey = "after_service_status";
   const statusSelect = statusKey
     ? `oi.\`${statusKey}\` AS \`afterServiceStatus\``
     : "0 AS `afterServiceStatus`";
@@ -260,7 +248,7 @@ async function listOrderItemsWithSkuSpuByOrderIds(orderIds, options = {}) {
   if (!ids.length) {
     return [];
   }
-  const statusKey = await resolveOrderItemStatusColumn();
+  const statusKey = "after_service_status";
   const statusSelect = statusKey
     ? `oi.\`${statusKey}\` AS \`afterServiceStatus\``
     : "0 AS `afterServiceStatus`";
@@ -297,7 +285,7 @@ async function updateOrderItemStatusByIds({ orderItemIds, status }, options = {}
   if (!ids.length) {
     return { ok: true, affectedRows: 0, skipped: true };
   }
-  const statusKey = await resolveOrderItemStatusColumn(options);
+  const statusKey = "after_service_status";
   if (!statusKey) {
     return { ok: true, affectedRows: 0, skipped: true };
   }
@@ -325,7 +313,7 @@ async function updateOrderItemStatusByOrderId({ orderId, status }, options = {})
   if (!normalizedOrderId) {
     return { ok: true, affectedRows: 0, skipped: true };
   }
-  const statusKey = await resolveOrderItemStatusColumn(options);
+  const statusKey = "after_service_status";
   if (!statusKey) {
     return { ok: true, affectedRows: 0, skipped: true };
   }
@@ -359,7 +347,7 @@ async function updateOrderItemStatusByOrderIdAndSkuIds(
   if (!normalizedOrderId || !ids.length) {
     return { ok: true, affectedRows: 0, skipped: true };
   }
-  const statusKey = await resolveOrderItemStatusColumn(options);
+  const statusKey = "after_service_status";
   if (!statusKey) {
     return { ok: true, affectedRows: 0, skipped: true };
   }

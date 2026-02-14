@@ -193,6 +193,7 @@ async function listOrderPage(body) {
         _id: row?.orderItemId != null ? String(row.orderItemId) : "",
         skuId,
         count: Number(row?.count || 0),
+        afterServiceStatus: row?.afterServiceStatus != null ? Number(row.afterServiceStatus) : null,
         sku: skuId
           ? {
               _id: skuId,
