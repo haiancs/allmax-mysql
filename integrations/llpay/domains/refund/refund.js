@@ -16,6 +16,7 @@ const {
   safeNumber,
   ensureTimestamp14,
 } = require("../../../../utils/llpayRouteUtils");
+const { createLLPayRefund, updateLLPayRefundStatus, findLLPayRefundBySeqno } = require("../../repos/llpayRefundRepo");
 
 const AfterServiceStatus = {
   TO_AUDIT: 10,
@@ -170,7 +171,7 @@ async function refundApply(body) {
           : [
               {
                 payee_uid: partnerId,
-                payee_accttype: "MCHOWN",
+                payee_accttype: "MCHASSURE",
                 payee_type: "MCH",
                 payee_amount: refundAmount,
               },
@@ -212,6 +213,21 @@ async function refundApply(body) {
 
   try {
     console.log("[LLPAY][refundApply] request payload:", payload);
+    // 检查是否已存在，如果不存在则创建PENDING记录
+    const existing = await findLLPayRefundBySeqno(refundSeqno);
+    if (!existing) {
+      await createLLPayRefund({
+        refund_no: refundSeqno, // 通常售后单号和流水号一致
+        refund_seqno: refundSeqno,
+        txn_seqno: txnSeqno,
+        refund_amount: refundAmount,
+        refund_time: refundTime,
+        status: "PENDING",
+        _openid: "", // 暂无 openid 信息
+        refund_method_infos: refundMethodInfos || null,
+        payee_refund_infos: payeeRefundInfos || null,
+      });
+    }
   } catch (_) {}
 
   let result;
@@ -230,6 +246,15 @@ async function refundApply(body) {
     const errCode = result.code || null;
     const statusCode = typeof result.statusCode === "number" ? result.statusCode : 0;
     const httpStatus = getLLPayHttpStatus(result);
+    // 更新为失败状态
+    try {
+      await updateLLPayRefundStatus(refundSeqno, {
+        status: "FAIL",
+        ret_code: errCode || "NETWORK_ERROR",
+        ret_msg: result.error || "请求失败",
+      });
+    } catch (_) {}
+
     return {
       ok: false,
       httpStatus,
@@ -247,7 +272,17 @@ async function refundApply(body) {
   const apiData = typeof result.data === "string" ? tryParseJsonObject(result.data) || result.data : result.data;
   const apiObj = apiData && typeof apiData === "object" ? apiData : null;
   const retCode = safeTrim(apiObj?.ret_code);
+  
   if (retCode && retCode !== "0000") {
+    // 业务层面的失败
+    try {
+      await updateLLPayRefundStatus(refundSeqno, {
+        status: "FAIL",
+        ret_code: retCode,
+        ret_msg: safeTrim(apiObj?.ret_msg),
+      });
+    } catch (_) {}
+
     return {
       ok: false,
       httpStatus: 502,
@@ -259,6 +294,18 @@ async function refundApply(body) {
       },
     };
   }
+
+  // 成功
+  try {
+    // 状态映射：根据连连文档，0000 表示受理成功，具体状态看 refund_status
+    // 但 ipay/refund 接口通常同步返回结果，ret_code=0000 即表示申请成功
+    await updateLLPayRefundStatus(refundSeqno, {
+      status: "SUCCESS", // 或 processing，视具体业务定义，这里简化为 SUCCESS 表示受理成功
+      ret_code: "0000",
+      ret_msg: safeTrim(apiObj?.ret_msg) || "Success",
+      platform_refundno: safeTrim(apiObj?.platform_refundno),
+    });
+  } catch (_) {}
 
   return {
     ok: true,
