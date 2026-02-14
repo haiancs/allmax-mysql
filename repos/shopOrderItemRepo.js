@@ -101,6 +101,12 @@ const ShopOrderItem = sequelize.define(
       defaultValue: 0,
       field: "after_service_status",
     },
+    afterServiceId: {
+      type: DataTypes.STRING(64),
+      allowNull: true,
+      defaultValue: "",
+      field: "after_service_id",
+    },
   },
   {
     tableName: "shop_order_item",
@@ -165,8 +171,8 @@ async function listOrderItemsWithSkuSpuDistributionByOrderId(orderId, options = 
     : "dr.`share_price` AS `sharePrice`";
   const statusKey = "after_service_status";
   const statusSelect = statusKey
-    ? `oi.\`${statusKey}\` AS \`afterServiceStatus\``
-    : "0 AS `afterServiceStatus`";
+    ? `oi.\`${statusKey}\` AS \`afterServiceStatus\`, oi.\`after_service_id\` AS \`afterServiceId\``
+    : "0 AS `afterServiceStatus`, '' AS `afterServiceId`";
   const rows = await sequelize.query(
     `SELECT
         oi.\`_id\` AS \`orderItemId\`,
@@ -209,8 +215,8 @@ async function listOrderItemsWithSkuSpuDistributionByOrderIds(orderIds, options 
     : "dr.`share_price` AS `sharePrice`";
   const statusKey = "after_service_status";
   const statusSelect = statusKey
-    ? `oi.\`${statusKey}\` AS \`afterServiceStatus\``
-    : "0 AS `afterServiceStatus`";
+    ? `oi.\`${statusKey}\` AS \`afterServiceStatus\`, oi.\`after_service_id\` AS \`afterServiceId\``
+    : "0 AS `afterServiceStatus`, '' AS `afterServiceId`";
   const rows = await sequelize.query(
     `SELECT
         oi.\`_id\` AS \`orderItemId\`,
@@ -250,8 +256,8 @@ async function listOrderItemsWithSkuSpuByOrderIds(orderIds, options = {}) {
   }
   const statusKey = "after_service_status";
   const statusSelect = statusKey
-    ? `oi.\`${statusKey}\` AS \`afterServiceStatus\``
-    : "0 AS `afterServiceStatus`";
+    ? `oi.\`${statusKey}\` AS \`afterServiceStatus\`, oi.\`after_service_id\` AS \`afterServiceId\``
+    : "0 AS `afterServiceStatus`, '' AS `afterServiceId`";
   const rows = await sequelize.query(
     `SELECT
         oi.\`_id\` AS \`orderItemId\`,
@@ -278,7 +284,10 @@ async function listOrderItemsWithSkuSpuByOrderIds(orderIds, options = {}) {
   return rows || [];
 }
 
-async function updateOrderItemStatusByIds({ orderItemIds, status }, options = {}) {
+async function updateOrderItemStatusByIds(
+  { orderItemIds, status, afterServiceId },
+  options = {}
+) {
   const ids = Array.isArray(orderItemIds)
     ? orderItemIds.map((id) => String(id).trim()).filter(Boolean)
     : [];
@@ -291,10 +300,16 @@ async function updateOrderItemStatusByIds({ orderItemIds, status }, options = {}
   }
   const updatedAtKey = await resolveOrderItemUpdatedAtColumn(options);
   const replacements = { status, ids };
+  if (typeof afterServiceId === "string") {
+    replacements.afterServiceId = afterServiceId;
+  }
   if (updatedAtKey) {
     replacements.updated_at = new Date();
   }
   const setParts = [`\`${statusKey}\` = :status`];
+  if (typeof afterServiceId === "string") {
+    setParts.push(`\`after_service_id\` = :afterServiceId`);
+  }
   if (updatedAtKey) setParts.push(`\`${updatedAtKey}\` = :updated_at`);
   const sql = `UPDATE \`shop_order_item\` SET ${setParts.join(
     ", "
@@ -308,7 +323,10 @@ async function updateOrderItemStatusByIds({ orderItemIds, status }, options = {}
   return { ok: true, affectedRows, skipped: false };
 }
 
-async function updateOrderItemStatusByOrderId({ orderId, status }, options = {}) {
+async function updateOrderItemStatusByOrderId(
+  { orderId, status, afterServiceId },
+  options = {}
+) {
   const normalizedOrderId = typeof orderId === "string" ? orderId.trim() : "";
   if (!normalizedOrderId) {
     return { ok: true, affectedRows: 0, skipped: true };
@@ -319,10 +337,16 @@ async function updateOrderItemStatusByOrderId({ orderId, status }, options = {})
   }
   const updatedAtKey = await resolveOrderItemUpdatedAtColumn(options);
   const replacements = { status, orderId: normalizedOrderId };
+  if (typeof afterServiceId === "string") {
+    replacements.afterServiceId = afterServiceId;
+  }
   if (updatedAtKey) {
     replacements.updated_at = new Date();
   }
   const setParts = [`\`${statusKey}\` = :status`];
+  if (typeof afterServiceId === "string") {
+    setParts.push(`\`after_service_id\` = :afterServiceId`);
+  }
   if (updatedAtKey) setParts.push(`\`${updatedAtKey}\` = :updated_at`);
   const sql = `UPDATE \`shop_order_item\` SET ${setParts.join(
     ", "
@@ -337,7 +361,7 @@ async function updateOrderItemStatusByOrderId({ orderId, status }, options = {})
 }
 
 async function updateOrderItemStatusByOrderIdAndSkuIds(
-  { orderId, skuIds, status },
+  { orderId, skuIds, status, afterServiceId },
   options = {}
 ) {
   const normalizedOrderId = typeof orderId === "string" ? orderId.trim() : "";
@@ -353,10 +377,16 @@ async function updateOrderItemStatusByOrderIdAndSkuIds(
   }
   const updatedAtKey = await resolveOrderItemUpdatedAtColumn(options);
   const replacements = { status, orderId: normalizedOrderId, skuIds: ids };
+  if (typeof afterServiceId === "string") {
+    replacements.afterServiceId = afterServiceId;
+  }
   if (updatedAtKey) {
     replacements.updated_at = new Date();
   }
   const setParts = [`\`${statusKey}\` = :status`];
+  if (typeof afterServiceId === "string") {
+    setParts.push(`\`after_service_id\` = :afterServiceId`);
+  }
   if (updatedAtKey) setParts.push(`\`${updatedAtKey}\` = :updated_at`);
   const sql = `UPDATE \`shop_order_item\` SET ${setParts.join(
     ", "

@@ -76,19 +76,24 @@ function collectRefundItemTargets(items) {
   };
 }
 
-async function updateOrderItemsStatus({ orderId, items, status }) {
+async function updateOrderItemsStatus({ orderId, items, status, afterServiceId }) {
   const targets = collectRefundItemTargets(items);
   if (targets.orderItemIds.length) {
-    return updateOrderItemStatusByIds({ orderItemIds: targets.orderItemIds, status });
+    return updateOrderItemStatusByIds({
+      orderItemIds: targets.orderItemIds,
+      status,
+      afterServiceId,
+    });
   }
   if (targets.skuIds.length) {
     return updateOrderItemStatusByOrderIdAndSkuIds({
       orderId,
       skuIds: targets.skuIds,
       status,
+      afterServiceId,
     });
   }
-  return updateOrderItemStatusByOrderId({ orderId, status });
+  return updateOrderItemStatusByOrderId({ orderId, status, afterServiceId });
 }
 
 router.post("/apply", async (req, res) => {
@@ -181,6 +186,7 @@ router.post("/apply", async (req, res) => {
     orderId,
     items,
     status: OrderItemAfterServiceStatus.TO_AUDIT,
+    afterServiceId: insertRes.record._id || insertRes.record.id,
   });
 
   const detailRes = await getRefundApply({ refundNo, orderId });
