@@ -183,6 +183,7 @@ async function listOrderItemsWithSkuSpuDistributionByOrderId(orderId, options = 
         s.\`wholesale_price\` AS \`wholesalePrice\`,
         s.\`image\` AS \`image\`,
         s.\`spu\` AS \`spuId\`,
+        s.\`description\` AS \`skuDescription\`,
         sp.\`name\` AS \`spuName\`,
         ${sharePriceSelect},
         ${statusSelect}
@@ -228,6 +229,7 @@ async function listOrderItemsWithSkuSpuDistributionByOrderIds(orderIds, options 
         s.\`wholesale_price\` AS \`wholesalePrice\`,
         s.\`image\` AS \`image\`,
         s.\`spu\` AS \`spuId\`,
+        s.\`description\` AS \`skuDescription\`,
         sp.\`name\` AS \`spuName\`,
         ${sharePriceSelect},
         ${statusSelect}
@@ -268,6 +270,7 @@ async function listOrderItemsWithSkuSpuByOrderIds(orderIds, options = {}) {
         s.\`wholesale_price\` AS \`wholesalePrice\`,
         s.\`image\` AS \`image\`,
         s.\`spu\` AS \`spuId\`,
+        s.\`description\` AS \`skuDescription\`,
         sp.\`name\` AS \`spuName\`,
         ${statusSelect}
       FROM \`shop_order_item\` oi

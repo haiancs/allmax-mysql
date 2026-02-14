@@ -18,6 +18,7 @@ const {
   updateOrderItemStatusByIds,
   updateOrderItemStatusByOrderId,
   updateOrderItemStatusByOrderIdAndSkuIds,
+  listOrderItemsWithSkuSpuDistributionByOrderIds,
 } = require("../repos/shopOrderItemRepo");
 
 const AfterServiceStatus = {
@@ -94,6 +95,68 @@ async function updateOrderItemsStatus({ orderId, items, status, afterServiceId }
     });
   }
   return updateOrderItemStatusByOrderId({ orderId, status, afterServiceId });
+}
+
+async function attachRightsItems(applies) {
+  const list = Array.isArray(applies) ? applies : [applies];
+  if (!list.length) return;
+
+  const orderIds = [
+    ...new Set(list.map((x) => x.order_id || x.orderId).filter(Boolean)),
+  ];
+  const orderItems = await listOrderItemsWithSkuSpuDistributionByOrderIds(orderIds);
+  const orderItemsMap = {};
+  for (const oi of orderItems) {
+    if (!orderItemsMap[oi.orderId]) {
+      orderItemsMap[oi.orderId] = [];
+    }
+    orderItemsMap[oi.orderId].push(oi);
+  }
+
+  for (const app of list) {
+    const orderId = app.order_id || app.orderId;
+    const itemsRaw = normalizeRefundItems(
+      app.items || app.item_list || app.refund_items
+    );
+
+    const rightsItems = [];
+    const related = orderItemsMap[orderId] || [];
+
+    for (const raw of itemsRaw) {
+      let match = null;
+      const oid = raw.orderItemId || raw.order_item_id || raw.id || raw._id;
+      const sid = raw.skuId || raw.sku_id || raw.sku;
+
+      if (oid) match = related.find((r) => String(r.orderItemId) === String(oid));
+      if (!match && sid)
+        match = related.find((r) => String(r.skuId) === String(sid));
+
+      if (match) {
+        rightsItems.push({
+          goodsPictureUrl: match.image,
+          goodsName: match.spuName,
+          itemRefundAmount:
+            raw.itemTotalAmount || raw.refundAmount || match.price,
+          rightsQuantity: raw.rightsQuantity || raw.count || match.count,
+          specInfo: match.skuDescription
+            ? String(match.skuDescription)
+                .split("|")
+                .map((s) => ({ specValues: s.trim() }))
+                .filter((x) => x.specValues)
+            : [],
+          skuId: match.skuId,
+          spuId: match.spuId,
+        });
+      }
+    }
+
+    app.rightsItem = rightsItems;
+    app.rightsNo = app.refundNo || app.refund_no;
+    app.rightsStatus = app.status;
+    app.rightsType = 1;
+    app.createTime = app.createdAt;
+    app.refundAmount = app.refundAmount || app.refund_amount;
+  }
 }
 
 router.post("/apply", async (req, res) => {
@@ -241,6 +304,7 @@ router.post("/refund/list", async (req, res) => {
   if (!listRes.ok) {
     return res.status(listRes.httpStatus).send(listRes.body);
   }
+  await attachRightsItems(listRes.rows);
   return res.send({ code: 0, data: { records: listRes.rows, total: listRes.total } });
 });
 
@@ -320,6 +384,7 @@ router.post("/detail", async (req, res) => {
   if (!detailRes.row) {
     return res.status(404).send({ code: -1, message: "退款单不存在", data: null });
   }
+  await attachRightsItems(detailRes.row);
   return res.send({ code: 0, data: detailRes.row });
 });
 
