@@ -3,6 +3,10 @@ const { sequelize } = require("../db");
 
 let orderItemDistributionPriceColumn = null;
 let orderItemColumnsCache = null;
+
+// Clear cache to ensure the new object-based format is used
+orderItemColumnsCache = null;
+
 async function resolveOrderItemDistributionPriceColumn(options = {}) {
   const transaction = options?.transaction;
   if (orderItemDistributionPriceColumn !== null) {
@@ -42,9 +46,9 @@ async function getOrderItemColumns(options = {}) {
       type: QueryTypes.SELECT,
       transaction,
     });
-    const columns = (rows || [])
-      .map((row) => row?.Field)
-      .filter((field) => typeof field === "string" && field.length > 0);
+    const columns = (rows || []).filter(
+      (row) => typeof row?.Field === "string" && row.Field.length > 0
+    );
     orderItemColumnsCache = columns;
     return columns;
   } catch (_) {
@@ -54,17 +58,24 @@ async function getOrderItemColumns(options = {}) {
 }
 
 function pickFirstColumn(columns, candidates) {
-  const colSet = new Set(columns || []);
+  const colMap = new Map((columns || []).map((c) => [c.Field, c.Type]));
   for (const key of candidates) {
-    if (colSet.has(key)) return key;
+    if (colMap.has(key)) return { name: key, type: colMap.get(key) };
   }
-  return "";
+  return null;
 }
 
 async function resolveOrderItemUpdatedAtColumn(options = {}) {
   const columns = await getOrderItemColumns(options);
-  if (!columns) return "";
+  if (!columns) return null;
   return pickFirstColumn(columns, ["updated_at", "updatedAt"]);
+}
+
+function getUpdatedAtValue(updatedAtInfo) {
+  if (!updatedAtInfo) return null;
+  const isBigInt =
+    updatedAtInfo.type && updatedAtInfo.type.toLowerCase().includes("bigint");
+  return isBigInt ? Date.now() : new Date();
 }
 
 const ShopOrderItem = sequelize.define(
@@ -321,19 +332,19 @@ async function updateOrderItemStatusByIds(
   if (!statusKey) {
     return { ok: true, affectedRows: 0, skipped: true };
   }
-  const updatedAtKey = await resolveOrderItemUpdatedAtColumn(options);
+  const updatedAtInfo = await resolveOrderItemUpdatedAtColumn(options);
   const replacements = { status, ids };
   if (typeof afterServiceId === "string") {
     replacements.afterServiceId = afterServiceId;
   }
-  if (updatedAtKey) {
-    replacements.updated_at = new Date();
+  if (updatedAtInfo) {
+    replacements.updated_at = getUpdatedAtValue(updatedAtInfo);
   }
   const setParts = [`\`${statusKey}\` = :status`];
   if (typeof afterServiceId === "string") {
     setParts.push(`\`after_service_id\` = :afterServiceId`);
   }
-  if (updatedAtKey) setParts.push(`\`${updatedAtKey}\` = :updated_at`);
+  if (updatedAtInfo) setParts.push(`\`${updatedAtInfo.name}\` = :updated_at`);
   const sql = `UPDATE \`shop_order_item\` SET ${setParts.join(
     ", "
   )} WHERE \`_id\` IN (:ids)`;
@@ -363,19 +374,19 @@ async function updateOrderItemStatusByOrderId(
   if (!statusKey) {
     return { ok: true, affectedRows: 0, skipped: true };
   }
-  const updatedAtKey = await resolveOrderItemUpdatedAtColumn(options);
+  const updatedAtInfo = await resolveOrderItemUpdatedAtColumn(options);
   const replacements = { status, orderId: normalizedOrderId };
   if (typeof afterServiceId === "string") {
     replacements.afterServiceId = afterServiceId;
   }
-  if (updatedAtKey) {
-    replacements.updated_at = new Date();
+  if (updatedAtInfo) {
+    replacements.updated_at = getUpdatedAtValue(updatedAtInfo);
   }
   const setParts = [`\`${statusKey}\` = :status`];
   if (typeof afterServiceId === "string") {
     setParts.push(`\`after_service_id\` = :afterServiceId`);
   }
-  if (updatedAtKey) setParts.push(`\`${updatedAtKey}\` = :updated_at`);
+  if (updatedAtInfo) setParts.push(`\`${updatedAtInfo.name}\` = :updated_at`);
   const sql = `UPDATE \`shop_order_item\` SET ${setParts.join(
     ", "
   )} WHERE \`order\` = :orderId`;
@@ -408,19 +419,19 @@ async function updateOrderItemStatusByOrderIdAndSkuIds(
   if (!statusKey) {
     return { ok: true, affectedRows: 0, skipped: true };
   }
-  const updatedAtKey = await resolveOrderItemUpdatedAtColumn(options);
+  const updatedAtInfo = await resolveOrderItemUpdatedAtColumn(options);
   const replacements = { status, orderId: normalizedOrderId, skuIds: ids };
   if (typeof afterServiceId === "string") {
     replacements.afterServiceId = afterServiceId;
   }
-  if (updatedAtKey) {
-    replacements.updated_at = new Date();
+  if (updatedAtInfo) {
+    replacements.updated_at = getUpdatedAtValue(updatedAtInfo);
   }
   const setParts = [`\`${statusKey}\` = :status`];
   if (typeof afterServiceId === "string") {
     setParts.push(`\`after_service_id\` = :afterServiceId`);
   }
-  if (updatedAtKey) setParts.push(`\`${updatedAtKey}\` = :updated_at`);
+  if (updatedAtInfo) setParts.push(`\`${updatedAtInfo.name}\` = :updated_at`);
   const sql = `UPDATE \`shop_order_item\` SET ${setParts.join(
     ", "
   )} WHERE \`order\` = :orderId AND \`sku\` IN (:skuIds)`;
