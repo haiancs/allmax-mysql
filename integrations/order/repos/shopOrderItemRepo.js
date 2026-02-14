@@ -15,4 +15,8 @@ module.exports = {
     shopOrderItemRepo.listOrderItemsWithSkuSpuDistributionByOrderIds,
   listOrderItemsWithSkuSpuByOrderIds:
     shopOrderItemRepo.listOrderItemsWithSkuSpuByOrderIds,
+  updateOrderItemStatusByIds: shopOrderItemRepo.updateOrderItemStatusByIds,
+  updateOrderItemStatusByOrderId: shopOrderItemRepo.updateOrderItemStatusByOrderId,
+  updateOrderItemStatusByOrderIdAndSkuIds:
+    shopOrderItemRepo.updateOrderItemStatusByOrderIdAndSkuIds,
 };
