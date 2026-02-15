@@ -7,6 +7,7 @@ const { createPay } = require("../integrations/llpay/domains/payment/createPay")
 const {
   orderQuery,
   securedQuery,
+  refundQuery,
 } = require("../integrations/llpay/domains/query/llpayQuery");
 const {
   applyPushPay,
@@ -180,6 +181,12 @@ router.post("/secured-query", async (req, res) => {
       data: null,
     });
   }
+});
+
+router.post("/refund-query", async (req, res) => {
+  const result = await refundQuery(req.body);
+  if (!result.ok) return res.status(result.httpStatus).send(result.body);
+  return res.send(result.body);
 });
 
 router.post("/openapi", async (req, res) => {

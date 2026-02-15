@@ -30,6 +30,7 @@ const AfterServiceStatus = {
   CLOSED: 60,
 };
 const OrderItemAfterServiceStatus = {
+  NORMAL: 0,
   TO_AUDIT: 10,
   THE_APPROVED: 20,
   CLOSED: 60,
@@ -370,6 +371,24 @@ router.post("/refund/cancel", async (req, res) => {
     });
   }
 
+  const targetOrderId = row?.order_id || row?.orderId || orderId;
+  let targetItemStatus = OrderItemAfterServiceStatus.CLOSED;
+
+  try {
+    const orderRows = await sequelize.query(
+      "SELECT `status` FROM `shop_order` WHERE `_id` = :orderId LIMIT 1",
+      { replacements: { orderId: targetOrderId }, type: QueryTypes.SELECT }
+    );
+    const orderStatus = orderRows?.[0]?.status;
+    if (orderStatus === "TO_SEND") {
+      // 如果订单是待发货状态 (TO_SEND)，则取消退款后，订单项状态应恢复正常 (0)，以便商家可以继续发货
+      targetItemStatus = OrderItemAfterServiceStatus.NORMAL;
+    }
+  } catch (err) {
+    console.error("Failed to check order status during refund cancel:", err);
+    // Fallback to CLOSED if query fails, or handle error
+  }
+
   const transaction = await sequelize.transaction();
   try {
     const updateRes = await updateRefundApply(
@@ -391,9 +410,9 @@ router.post("/refund/cancel", async (req, res) => {
     );
     const itemUpdateRes = await updateOrderItemsStatus(
       {
-        orderId: row?.order_id || row?.orderId || orderId,
+        orderId: targetOrderId,
         items: rowItems.length ? rowItems : body.items,
-        status: OrderItemAfterServiceStatus.CLOSED,
+        status: targetItemStatus,
       },
       { transaction }
     );
@@ -410,7 +429,7 @@ router.post("/refund/cancel", async (req, res) => {
     await transaction.commit();
     return res.send({
       code: 0,
-      data: { refundNo, status: AfterServiceStatus.CLOSED },
+      data: { refundNo, status: AfterServiceStatus.CLOSED, itemStatus: targetItemStatus },
     });
   } catch (error) {
     await transaction.rollback();

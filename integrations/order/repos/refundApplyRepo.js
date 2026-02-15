@@ -214,8 +214,7 @@ async function getRefundApply({ refundNo, orderId }) {
   if (refundNoKey && refundNo) {
     whereParts.push(`\`${refundNoKey}\` = :refund_no`);
     replacements.refund_no = refundNo;
-  }
-  if (orderIdKey && orderId) {
+  } else if (orderIdKey && orderId) {
     whereParts.push(`\`${orderIdKey}\` = :order_id`);
     replacements.order_id = orderId;
   }
@@ -270,8 +269,7 @@ async function listRefundApplies({ status, orderId, refundNo, userId, limit, off
     }
     whereParts.push(`\`${refundNoKey}\` = :refund_no`);
     replacements.refund_no = refundNo;
-  }
-  if (orderId) {
+  } else if (orderId) {
     if (!orderIdKey) {
       return buildError(500, "refund_apply 缺少 order_id 字段");
     }
