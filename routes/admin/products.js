@@ -93,7 +93,7 @@ router.get("/spu", async (req, res) => {
     if (spuIds.length) {
       categoryLinks = await sequelize.query(
         `SELECT m.leftRecordId as spuId, c._id as cateId, c.name as cateName 
-         FROM mid_4RKifhrar m 
+         FROM mid_shop_spu_shop_spu_c_5oe72yVQ5 m 
          JOIN shop_spu_cate c ON m.rightRecordId = c._id 
          WHERE m.leftRecordId IN (:spuIds)`,
         {
@@ -146,7 +146,7 @@ router.get("/spu/:id", async (req, res) => {
     const spu = spuRow.toJSON();
     const categoryLinks = await sequelize.query(
       `SELECT c._id as id, c.name 
-       FROM mid_4RKifhrar m 
+       FROM mid_shop_spu_shop_spu_c_5oe72yVQ5 m 
        JOIN shop_spu_cate c ON m.rightRecordId = c._id 
        WHERE m.leftRecordId = :spuId`,
       {
@@ -225,7 +225,7 @@ router.put("/spu/:id", async (req, res) => {
 
     if (Array.isArray(categoryIds)) {
       await sequelize.query(
-        "DELETE FROM `mid_4RKifhrar` WHERE `leftRecordId` = :spuId",
+        "DELETE FROM `mid_shop_spu_shop_spu_c_5oe72yVQ5` WHERE `leftRecordId` = :spuId",
         {
           replacements: { spuId: id },
           type: QueryTypes.DELETE,
@@ -263,7 +263,7 @@ router.delete("/spu/:id", async (req, res) => {
   const transaction = await sequelize.transaction();
   try {
     await sequelize.query(
-      "DELETE FROM `mid_4RKifhrar` WHERE `leftRecordId` = :spuId",
+      "DELETE FROM `mid_shop_spu_shop_spu_c_5oe72yVQ5` WHERE `leftRecordId` = :spuId",
       {
         replacements: { spuId: id },
         type: QueryTypes.DELETE,

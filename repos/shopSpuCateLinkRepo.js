@@ -22,7 +22,7 @@ const SpuCateLink = sequelize.define(
     },
   },
   {
-    tableName: "mid_4RKifhrar",
+    tableName: "mid_shop_spu_shop_spu_c_5oe72yVQ5",
     timestamps: true,
   }
 );

@@ -147,7 +147,7 @@ async function upsertSpuCateLinks({
   await deleteMidOrphans({
     sequelize,
     transaction,
-    tableName: "mid_4RKifhrar",
+    tableName: "mid_shop_spu_shop_spu_c_5oe72yVQ5",
     leftTableName: "shop_spu_cate",
     rightTableName: "shop_spu",
   });
@@ -155,7 +155,7 @@ async function upsertSpuCateLinks({
   return upsertMidLinks({
     sequelize,
     transaction,
-    tableName: "mid_4RKifhrar",
+    tableName: "mid_shop_spu_shop_spu_c_5oe72yVQ5",
     links,
     nowMs,
   });
@@ -201,7 +201,7 @@ async function repairShopRelations({ sequelize, dryRun }) {
 
   return sequelize.transaction(async (transaction) => {
     const spuCateBefore = await sequelize.query(
-      "SELECT COUNT(*) AS cnt FROM `mid_4RKifhrar`",
+      "SELECT COUNT(*) AS cnt FROM `mid_shop_spu_shop_spu_c_5oe72yVQ5`",
       { type: QueryTypes.SELECT, transaction }
     );
     const skuAttrBefore = await sequelize.query(
@@ -226,7 +226,7 @@ async function repairShopRelations({ sequelize, dryRun }) {
       dryRun: true,
       nowMs,
       before: {
-        mid_4RKifhrar: Number(spuCateBefore?.[0]?.cnt || 0),
+        mid_shop_spu_shop_spu_c_5oe72yVQ5: Number(spuCateBefore?.[0]?.cnt || 0),
         mid_4RKieAhGh: Number(skuAttrBefore?.[0]?.cnt || 0),
       },
       attrValueBackfillPairs: backfillPairs.length,
@@ -239,7 +239,7 @@ async function repairShopRelations({ sequelize, dryRun }) {
     const spuCateRepair = await repairSwappedMidLinks({
       sequelize,
       transaction,
-      tableName: "mid_4RKifhrar",
+      tableName: "mid_shop_spu_shop_spu_c_5oe72yVQ5",
       leftTableName: "shop_spu_cate",
       rightTableName: "shop_spu",
       nowMs,
@@ -274,7 +274,7 @@ async function repairShopRelations({ sequelize, dryRun }) {
     const spuCateOrphansDeleted = await deleteMidOrphans({
       sequelize,
       transaction,
-      tableName: "mid_4RKifhrar",
+      tableName: "mid_shop_spu_shop_spu_c_5oe72yVQ5",
       leftTableName: "shop_spu_cate",
       rightTableName: "shop_spu",
     });
@@ -287,7 +287,7 @@ async function repairShopRelations({ sequelize, dryRun }) {
     });
 
     const spuCateAfter = await sequelize.query(
-      "SELECT COUNT(*) AS cnt FROM `mid_4RKifhrar`",
+      "SELECT COUNT(*) AS cnt FROM `mid_shop_spu_shop_spu_c_5oe72yVQ5`",
       { type: QueryTypes.SELECT, transaction }
     );
     const skuAttrAfter = await sequelize.query(
@@ -299,18 +299,18 @@ async function repairShopRelations({ sequelize, dryRun }) {
       dryRun: false,
       nowMs,
       before: {
-        mid_4RKifhrar: Number(spuCateBefore?.[0]?.cnt || 0),
+        mid_shop_spu_shop_spu_c_5oe72yVQ5: Number(spuCateBefore?.[0]?.cnt || 0),
         mid_4RKieAhGh: Number(skuAttrBefore?.[0]?.cnt || 0),
       },
       after: {
-        mid_4RKifhrar: Number(spuCateAfter?.[0]?.cnt || 0),
+        mid_shop_spu_shop_spu_c_5oe72yVQ5: Number(spuCateAfter?.[0]?.cnt || 0),
         mid_4RKieAhGh: Number(skuAttrAfter?.[0]?.cnt || 0),
       },
       spuCateRepair,
       skuAttrRepair,
       skuAttrBackfillUpserted: backfilled,
       orphansDeleted: {
-        mid_4RKifhrar: spuCateOrphansDeleted,
+        mid_shop_spu_shop_spu_c_5oe72yVQ5: spuCateOrphansDeleted,
         mid_4RKieAhGh: skuAttrOrphansDeleted,
       },
     };
