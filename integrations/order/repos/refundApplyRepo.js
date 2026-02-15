@@ -49,7 +49,7 @@ function normalizeJsonValue(value) {
   }
 }
 
-async function insertRefundApply(data) {
+async function insertRefundApply(data, options = {}) {
   const columns = await getTableColumns("refund_apply");
   if (!columns) {
     return buildError(500, "refund_apply 表不存在");
@@ -109,7 +109,7 @@ async function insertRefundApply(data) {
     .map((k) => `\`${k}\``)
     .join(", ")}) VALUES (${keys.map((k) => `:${k}`).join(", ")})`;
   try {
-    await sequelize.query(sql, { replacements, type: QueryTypes.INSERT });
+    await sequelize.query(sql, { replacements, type: QueryTypes.INSERT, transaction: options.transaction });
     return { ok: true, httpStatus: 200, record: replacements };
   } catch (error) {
     return {
@@ -120,7 +120,7 @@ async function insertRefundApply(data) {
   }
 }
 
-async function updateRefundApply(where, updates) {
+async function updateRefundApply(where, updates, options = {}) {
   const columns = await getTableColumns("refund_apply");
   if (!columns) {
     return buildError(500, "refund_apply 表不存在");
@@ -179,7 +179,10 @@ async function updateRefundApply(where, updates) {
     ", "
   )} WHERE ${whereParts.join(" AND ")} LIMIT 1`;
   try {
-    const [, metadata] = await sequelize.query(sql, { replacements });
+    const [, metadata] = await sequelize.query(sql, {
+      replacements,
+      transaction: options.transaction,
+    });
     const affectedRows =
       metadata && typeof metadata.affectedRows === "number"
         ? metadata.affectedRows

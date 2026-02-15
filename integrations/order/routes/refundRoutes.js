@@ -77,14 +77,14 @@ function collectRefundItemTargets(items) {
   };
 }
 
-async function updateOrderItemsStatus({ orderId, items, status, afterServiceId }) {
+async function updateOrderItemsStatus({ orderId, items, status, afterServiceId }, options = {}) {
   const targets = collectRefundItemTargets(items);
   if (targets.orderItemIds.length) {
     return updateOrderItemStatusByIds({
       orderItemIds: targets.orderItemIds,
       status,
       afterServiceId,
-    });
+    }, options);
   }
   if (targets.skuIds.length) {
     return updateOrderItemStatusByOrderIdAndSkuIds({
@@ -92,9 +92,9 @@ async function updateOrderItemsStatus({ orderId, items, status, afterServiceId }
       skuIds: targets.skuIds,
       status,
       afterServiceId,
-    });
+    }, options);
   }
-  return updateOrderItemStatusByOrderId({ orderId, status, afterServiceId });
+  return updateOrderItemStatusByOrderId({ orderId, status, afterServiceId }, options);
 }
 
 async function attachRightsItems(applies) {
@@ -228,35 +228,65 @@ router.post("/apply", async (req, res) => {
     return res.send({ code: 0, data: existing.row });
   }
 
-  const insertRes = await insertRefundApply({
-    orderId,
-    refundNo,
-    refundReason,
-    refundAmount,
-    status: AfterServiceStatus.TO_AUDIT,
-    userId: safeTrim(order?.user),
-    items,
-    imageUrls,
-    refundMemo,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  });
-  if (!insertRes.ok) {
-    return res.status(insertRes.httpStatus).send(insertRes.body);
-  }
+  const transaction = await sequelize.transaction();
+  try {
+    const insertRes = await insertRefundApply(
+      {
+        orderId,
+        refundNo,
+        refundReason,
+        refundAmount,
+        status: AfterServiceStatus.TO_AUDIT,
+        userId: safeTrim(order?.user),
+        items,
+        imageUrls,
+        refundMemo,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      { transaction }
+    );
 
-  await updateOrderItemsStatus({
-    orderId,
-    items,
-    status: OrderItemAfterServiceStatus.TO_AUDIT,
-    afterServiceId: insertRes.record._id || insertRes.record.id,
-  });
+    if (!insertRes.ok) {
+      await transaction.rollback();
+      return res.status(insertRes.httpStatus).send(insertRes.body);
+    }
+    console.log('haiancs', insertRes);
+    const updateRes = await updateOrderItemsStatus(
+      {
+        orderId,
+        items,
+        status: OrderItemAfterServiceStatus.TO_AUDIT,
+        afterServiceId: insertRes.record.refund_no,
+      },
+      { transaction }
+    );
 
-  const detailRes = await getRefundApply({ refundNo, orderId });
-  if (!detailRes.ok) {
-    return res.status(detailRes.httpStatus).send(detailRes.body);
+    if (!updateRes.ok) {
+      await transaction.rollback();
+      return res.status(500).send({
+        code: -1,
+        message: updateRes.error?.message || "更新订单项状态失败",
+        data: null,
+      });
+    }
+
+    await transaction.commit();
+
+    const detailRes = await getRefundApply({ refundNo, orderId });
+    if (!detailRes.ok) {
+      return res.status(detailRes.httpStatus).send(detailRes.body);
+    }
+    return res.send({ code: 0, data: detailRes.row || insertRes.record });
+  } catch (error) {
+    await transaction.rollback();
+    console.error("Refund apply error:", error);
+    return res.status(500).send({
+      code: -1,
+      message: "申请售后失败",
+      data: null,
+    });
   }
-  return res.send({ code: 0, data: detailRes.row || insertRes.record });
 });
 
 router.post("/refund/list", async (req, res) => {
@@ -340,28 +370,57 @@ router.post("/refund/cancel", async (req, res) => {
     });
   }
 
-  const updateRes = await updateRefundApply(
-    { refundNo, orderId },
-    {
-      status: AfterServiceStatus.CLOSED,
-      updatedAt: new Date(),
+  const transaction = await sequelize.transaction();
+  try {
+    const updateRes = await updateRefundApply(
+      { refundNo, orderId },
+      {
+        status: AfterServiceStatus.CLOSED,
+        updatedAt: new Date(),
+      },
+      { transaction }
+    );
+
+    if (!updateRes.ok) {
+      await transaction.rollback();
+      return res.status(updateRes.httpStatus).send(updateRes.body);
     }
-  );
 
-  if (!updateRes.ok) {
-    return res.status(updateRes.httpStatus).send(updateRes.body);
+    const rowItems = normalizeRefundItems(
+      row?.items || row?.item_list || row?.refund_items
+    );
+    const itemUpdateRes = await updateOrderItemsStatus(
+      {
+        orderId: row?.order_id || row?.orderId || orderId,
+        items: rowItems.length ? rowItems : body.items,
+        status: OrderItemAfterServiceStatus.CLOSED,
+      },
+      { transaction }
+    );
+
+    if (!itemUpdateRes.ok) {
+      await transaction.rollback();
+      return res.status(500).send({
+        code: -1,
+        message: itemUpdateRes.error?.message || "更新订单项状态失败",
+        data: null,
+      });
+    }
+
+    await transaction.commit();
+    return res.send({
+      code: 0,
+      data: { refundNo, status: AfterServiceStatus.CLOSED },
+    });
+  } catch (error) {
+    await transaction.rollback();
+    console.error("Refund cancel error:", error);
+    return res.status(500).send({
+      code: -1,
+      message: "取消售后失败",
+      data: null,
+    });
   }
-
-  const rowItems = normalizeRefundItems(
-    row?.items || row?.item_list || row?.refund_items
-  );
-  await updateOrderItemsStatus({
-    orderId: row?.order_id || row?.orderId || orderId,
-    items: rowItems.length ? rowItems : body.items,
-    status: OrderItemAfterServiceStatus.CLOSED,
-  });
-
-  return res.send({ code: 0, data: { refundNo, status: AfterServiceStatus.CLOSED } });
 });
 
 router.post("/detail", async (req, res) => {
