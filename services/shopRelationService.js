@@ -139,26 +139,36 @@ async function upsertSpuCateLinks({
     if (!spuId || !cateId) continue;
     links.push({
       id: md5Hex(`spuCate:${spuId}|${cateId}`),
-      leftId: cateId,
-      rightId: spuId,
+      categoryId: cateId,
+      spuId: spuId,
     });
   }
 
-  await deleteMidOrphans({
-    sequelize,
-    transaction,
-    tableName: "mid_shop_spu_shop_spu_c_5oe72yVQ5",
-    leftTableName: "shop_spu_cate",
-    rightTableName: "shop_spu",
-  });
+  // 物理外键已启用，不需要手动清理孤儿记录
+  // await deleteMidOrphans(...)
 
-  return upsertMidLinks({
-    sequelize,
-    transaction,
-    tableName: "mid_shop_spu_shop_spu_c_5oe72yVQ5",
-    links,
-    nowMs,
-  });
+  if (!links.length) {
+    return 0;
+  }
+
+  let affected = 0;
+  for (const chunk of splitIntoChunks(links, 400)) {
+    const placeholders = chunk.map(() => "(?, ?, ?, ?, ?)").join(", ");
+    const replacements = [];
+    for (const link of chunk) {
+      replacements.push(link.id, link.spuId, link.categoryId, nowMs, nowMs);
+    }
+    const [_, metadata] = await sequelize.query(
+      `INSERT INTO \`shop_spu_category_links\` (\`_id\`,\`spu_id\`, \`category_id\`, \`createdAt\`, \`updatedAt\`) VALUES ${placeholders}
+      ON DUPLICATE KEY UPDATE \`updatedAt\` = VALUES(\`updatedAt\`)`,
+      { replacements, transaction }
+    );
+    if (metadata && typeof metadata.affectedRows === "number") {
+      affected += metadata.affectedRows;
+    }
+  }
+
+  return affected;
 }
 
 async function upsertSkuAttrValueLinks({
@@ -201,7 +211,7 @@ async function repairShopRelations({ sequelize, dryRun }) {
 
   return sequelize.transaction(async (transaction) => {
     const spuCateBefore = await sequelize.query(
-      "SELECT COUNT(*) AS cnt FROM `mid_shop_spu_shop_spu_c_5oe72yVQ5`",
+      "SELECT COUNT(*) AS cnt FROM `shop_spu_category_links`",
       { type: QueryTypes.SELECT, transaction }
     );
     const skuAttrBefore = await sequelize.query(
@@ -226,7 +236,7 @@ async function repairShopRelations({ sequelize, dryRun }) {
       dryRun: true,
       nowMs,
       before: {
-        mid_shop_spu_shop_spu_c_5oe72yVQ5: Number(spuCateBefore?.[0]?.cnt || 0),
+        shop_spu_category_links: Number(spuCateBefore?.[0]?.cnt || 0),
         mid_4RKieAhGh: Number(skuAttrBefore?.[0]?.cnt || 0),
       },
       attrValueBackfillPairs: backfillPairs.length,
@@ -239,7 +249,7 @@ async function repairShopRelations({ sequelize, dryRun }) {
     const spuCateRepair = await repairSwappedMidLinks({
       sequelize,
       transaction,
-      tableName: "mid_shop_spu_shop_spu_c_5oe72yVQ5",
+      tableName: "shop_spu_category_links",
       leftTableName: "shop_spu_cate",
       rightTableName: "shop_spu",
       nowMs,
@@ -274,7 +284,7 @@ async function repairShopRelations({ sequelize, dryRun }) {
     const spuCateOrphansDeleted = await deleteMidOrphans({
       sequelize,
       transaction,
-      tableName: "mid_shop_spu_shop_spu_c_5oe72yVQ5",
+      tableName: "shop_spu_category_links",
       leftTableName: "shop_spu_cate",
       rightTableName: "shop_spu",
     });
@@ -287,7 +297,7 @@ async function repairShopRelations({ sequelize, dryRun }) {
     });
 
     const spuCateAfter = await sequelize.query(
-      "SELECT COUNT(*) AS cnt FROM `mid_shop_spu_shop_spu_c_5oe72yVQ5`",
+      "SELECT COUNT(*) AS cnt FROM `shop_spu_category_links`",
       { type: QueryTypes.SELECT, transaction }
     );
     const skuAttrAfter = await sequelize.query(
@@ -303,14 +313,14 @@ async function repairShopRelations({ sequelize, dryRun }) {
         mid_4RKieAhGh: Number(skuAttrBefore?.[0]?.cnt || 0),
       },
       after: {
-        mid_shop_spu_shop_spu_c_5oe72yVQ5: Number(spuCateAfter?.[0]?.cnt || 0),
+        shop_spu_category_links: Number(spuCateAfter?.[0]?.cnt || 0),
         mid_4RKieAhGh: Number(skuAttrAfter?.[0]?.cnt || 0),
       },
       spuCateRepair,
       skuAttrRepair,
       skuAttrBackfillUpserted: backfilled,
       orphansDeleted: {
-        mid_shop_spu_shop_spu_c_5oe72yVQ5: spuCateOrphansDeleted,
+        shop_spu_category_links: spuCateOrphansDeleted,
         mid_4RKieAhGh: skuAttrOrphansDeleted,
       },
     };

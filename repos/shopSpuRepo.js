@@ -36,19 +36,36 @@ const ShopSpu = sequelize.define(
       allowNull: true,
       field: "swiper_images",
     },
+    createdAt: {
+      type: DataTypes.BIGINT,
+      allowNull: true,
+      field: "createdAt",
+    },
+    updatedAt: {
+      type: DataTypes.BIGINT,
+      allowNull: true,
+      field: "updatedAt",
+    },
   },
   {
     tableName: "shop_spu",
-    timestamps: true,
+    timestamps: false,
   }
 );
 
 async function createSpu(data, options = {}) {
-  return ShopSpu.create(data, options);
+  const now = Date.now();
+  const dataToCreate = {
+    ...data,
+    createdAt: data.createdAt || now,
+    updatedAt: data.updatedAt || now,
+  };
+  return ShopSpu.create(dataToCreate, options);
 }
 
 async function updateSpuById(id, data, options = {}) {
-  return ShopSpu.update(data, { where: { id }, ...options });
+  const dataToUpdate = { ...data, updatedAt: Date.now() };
+  return ShopSpu.update(dataToUpdate, { where: { id }, ...options });
 }
 
 async function deleteSpuById(id, options = {}) {

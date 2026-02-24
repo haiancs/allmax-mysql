@@ -10,19 +10,19 @@ const SpuCateLink = sequelize.define(
       allowNull: false,
       field: "_id",
     },
-    leftRecordId: {
+    categoryId: {
       type: DataTypes.STRING(34),
       allowNull: false,
-      field: "leftRecordId",
+      field: "category_id",
     },
-    rightRecordId: {
+    spuId: {
       type: DataTypes.STRING(34),
       allowNull: false,
-      field: "rightRecordId",
+      field: "spu_id",
     },
   },
   {
-    tableName: "mid_shop_spu_shop_spu_c_5oe72yVQ5",
+    tableName: "shop_spu_category_links",
     timestamps: true,
   }
 );
@@ -42,20 +42,20 @@ async function deleteSpuCateLinkById(id, options = {}) {
   return SpuCateLink.destroy({ where: { id }, ...options });
 }
 
-async function deleteSpuCateLinksByPair(leftRecordId, rightRecordId, options = {}) {
+async function deleteSpuCateLinksByPair(categoryId, spuId, options = {}) {
   return SpuCateLink.destroy({
-    where: { leftRecordId, rightRecordId },
+    where: { categoryId, spuId },
     ...options,
   });
 }
 
 async function listSpuCateLinks(filter = {}, options = {}) {
   const where = {};
-  if (Array.isArray(filter.leftRecordIds) && filter.leftRecordIds.length) {
-    where.leftRecordId = filter.leftRecordIds;
+  if (Array.isArray(filter.categoryIds) && filter.categoryIds.length) {
+    where.categoryId = filter.categoryIds;
   }
-  if (Array.isArray(filter.rightRecordIds) && filter.rightRecordIds.length) {
-    where.rightRecordId = filter.rightRecordIds;
+  if (Array.isArray(filter.spuIds) && filter.spuIds.length) {
+    where.spuId = filter.spuIds;
   }
   return SpuCateLink.findAll({
     where,
