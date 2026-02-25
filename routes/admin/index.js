@@ -5,6 +5,7 @@ const ordersRouter = require("./orders");
 const usersRouter = require("./users");
 const productsRouter = require("./products");
 const refundsRouter = require("./refunds");
+const sysLogsRouter = require("./sysLogs");
 
 const router = express.Router();
 
@@ -24,6 +25,7 @@ router.use("/orders", ordersRouter);
 router.use("/users", usersRouter);
 router.use("/products", productsRouter);
 router.use("/refunds", refundsRouter);
+router.use("/sys_logs", sysLogsRouter);
 
 module.exports = router;
 
