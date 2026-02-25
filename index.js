@@ -29,8 +29,7 @@ const llpayRouter = require("./routes/llpay");
 const llpaySecuredTxnRouter = require("./routes/llpay/securedTxnRoutes");
 const cainiaoRouter = require("./routes/cainiao");
 const adminRouter = require("./routes/admin");
-
-const logger = morgan("tiny");
+const appLogger = require("./utils/logger");
 
 const app = express();
 app.use(express.urlencoded({ extended: false }));
@@ -41,7 +40,7 @@ const corsOptions = {
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
 };
 app.use(cors(corsOptions));
-app.use(logger);
+app.use(morgan("tiny", { stream: appLogger.stream }));
 app.use("/api", orderQueryRoutes);
 app.use("/api/distribution", distributionRouter);
 app.use("/api/shop", shopRouter);
@@ -67,6 +66,15 @@ app.get("/api/status", async (req, res) => {
       connected: checkConnection(),
     },
   });
+});
+
+app.get("/api/test-log", (req, res) => {
+  appLogger.info("测试日志写入 - 手动触发", { 
+    source: "manual_test", 
+    ip: req.ip,
+    query: req.query 
+  });
+  res.send({ code: 0, message: "日志已记录，请检查 sys_logs 表" });
 });
 
 app.post("/api/shop_sku/update-count", async (req, res) => {

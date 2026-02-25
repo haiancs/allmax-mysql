@@ -1,6 +1,7 @@
 const { sequelize } = require("../../../db");
 const { confirmOrderReceivedInTransaction } = require("../../../services/shopOrderService");
 const { safeTrim, buildError } = require("../utils/orderValidation");
+const { securedConfirm } = require("../../llpay/domains/securedTxn/securedConfirm");
 
 async function confirmReceived(input) {
   const orderId = safeTrim(input?.orderId || input?.body?.orderId);
@@ -26,12 +27,25 @@ async function confirmReceived(input) {
       )
     );
 
+    // 尝试发起担保确认（如果本地状态更新成功，或即使幂等命中也尝试确保支付确认）
+    // 注意：这里失败不回滚本地状态，因为货物确实已收到
+    try {
+      const securedRes = await securedConfirm({ orderId });
+      if (!securedRes.ok) {
+        console.error(`[confirmReceived] Secured confirm failed for order ${orderId}:`, securedRes);
+      } else {
+        console.log(`[confirmReceived] Secured confirm success for order ${orderId}`);
+      }
+    } catch (err) {
+      console.error(`[confirmReceived] Secured confirm error for order ${orderId}:`, err);
+    }
+
     return {
       ok: true,
       httpStatus: 200,
       body: {
         code: 0,
-        data: result,
+        data: result.order,
       },
     };
   } catch (error) {
