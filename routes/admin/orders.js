@@ -98,14 +98,15 @@ router.get("/:id", async (req, res) => {
   ]);
 
   const deliveryInfo = deliveryInfoRows[0] || null;
+  const payment = paymentRows[0] || null;
 
   return res.send({
     code: 0,
     data: {
-      ...order,
+      order,
       items,
       deliveryInfo,
-      payment: paymentRows[0] || null,
+      payment,
     },
   });
 });
