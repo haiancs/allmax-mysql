@@ -211,31 +211,48 @@ async function refundApply(body) {
     );
     const totalDownstreamFen = downstreamEntries.reduce((sum, [, fen]) => sum + fen, 0);
     const orderAmountFenInt = Math.round(refundAmountNum * 100);
+    
+    // 判断订单是否已确认收货 (FINISHED)
+    // 如果已确认收货，说明资金已分账，需要根据分账情况退款（MCHOWN + USEROWN）
+    // 如果未确认收货，资金还在担保账户，直接从担保账户退款（MCHASSURE）
+    const isConfirmed = order?.status === "FINISHED";
+
     if (partnerId) {
-      payeeRefundInfos =
-        totalDownstreamFen > 0 && orderAmountFenInt > totalDownstreamFen
-          ? [
-              {
-                payee_uid: partnerId,
-                payee_accttype: "MCHOWN",
-                payee_type: "MCH",
-                payee_amount: ((orderAmountFenInt - totalDownstreamFen) / 100).toFixed(2),
-              },
-              ...downstreamEntries.map(([payeeUid, fen]) => ({
-                payee_uid: payeeUid,
-                payee_accttype: "USEROWN",
-                payee_type: "USER",
-                payee_amount: (fen / 100).toFixed(2),
-              })),
-            ]
-          : [
-              {
-                payee_uid: partnerId,
-                payee_accttype: "MCHOWN",
-                payee_type: "MCH",
-                payee_amount: refundAmount,
-              },
-            ];
+      if (isConfirmed) {
+        payeeRefundInfos =
+          totalDownstreamFen > 0 && orderAmountFenInt > totalDownstreamFen
+            ? [
+                {
+                  payee_uid: partnerId,
+                  payee_accttype: "MCHOWN",
+                  payee_type: "MCH",
+                  payee_amount: ((orderAmountFenInt - totalDownstreamFen) / 100).toFixed(2),
+                },
+                ...downstreamEntries.map(([payeeUid, fen]) => ({
+                  payee_uid: payeeUid,
+                  payee_accttype: "USEROWN",
+                  payee_type: "USER",
+                  payee_amount: (fen / 100).toFixed(2),
+                })),
+              ]
+            : [
+                {
+                  payee_uid: partnerId,
+                  payee_accttype: "MCHOWN",
+                  payee_type: "MCH",
+                  payee_amount: refundAmount,
+                },
+              ];
+      } else {
+        payeeRefundInfos = [
+          {
+            payee_uid: partnerId,
+            payee_accttype: "MCHASSURE",
+            payee_type: "MCH",
+            payee_amount: refundAmount,
+          },
+        ];
+      }
     }
 
     const payType = safeTrim(process.env.LLPAY_PAY_TYPE) || "WECHAT_APPLET";

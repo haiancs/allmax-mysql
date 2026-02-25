@@ -98,22 +98,22 @@ router.get("/:id", async (req, res) => {
   ]);
 
   const deliveryInfo = deliveryInfoRows[0] || null;
-  const payment = paymentRows[0] || null;
 
   return res.send({
     code: 0,
     data: {
-      order,
+      ...order,
       items,
       deliveryInfo,
-      payment,
+      payment: paymentRows[0] || null,
     },
   });
 });
 
-router.post("/:id/status", async (req, res) => {
+router.put("/:id", async (req, res) => {
   const id = typeof req.params.id === "string" ? req.params.id.trim() : "";
-  const status = typeof req.body?.status === "string" ? req.body.status.trim() : "";
+  const status = typeof req.body.status === "string" ? req.body.status.trim() : "";
+
   if (!id) {
     return res.status(400).send({
       code: -1,
@@ -121,6 +121,7 @@ router.post("/:id/status", async (req, res) => {
       data: null,
     });
   }
+
   if (!status) {
     return res.status(400).send({
       code: -1,
@@ -128,25 +129,31 @@ router.post("/:id/status", async (req, res) => {
       data: null,
     });
   }
-  const nowMs = Date.now();
+
   try {
-    const result = await sequelize.transaction((transaction) =>
-      updateOrderStatusInTransaction(
+    const result = await sequelize.transaction(async (t) => {
+      return await updateOrderStatusInTransaction(
         {
           orderId: id,
-          status,
-          nowMs,
+          status: status,
+          nowMs: Date.now(),
         },
-        transaction
-      )
-    );
-    return res.send({ code: 0, data: result });
-  } catch (error) {
-    const statusCode =
-      typeof error?.statusCode === "number" ? error.statusCode : 500;
+        t
+      );
+    });
+
+    return res.send({
+      code: 0,
+      message: "订单状态更新成功",
+      data: result.order,
+    });
+  } catch (err) {
+    console.error(err);
+    const statusCode = err.statusCode || 500;
+    const message = err.message || "服务器内部错误";
     return res.status(statusCode).send({
       code: -1,
-      message: error?.message || "更新订单状态失败",
+      message,
       data: null,
     });
   }
