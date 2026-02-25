@@ -41,10 +41,34 @@ const ShopSku = sequelize.define(
       type: DataTypes.TEXT,
       allowNull: true,
     },
+    createdAt: {
+      type: DataTypes.BIGINT,
+      allowNull: true,
+      defaultValue: () => Date.now(),
+    },
+    updatedAt: {
+      type: DataTypes.BIGINT,
+      allowNull: true,
+      defaultValue: () => Date.now(),
+    },
   },
   {
     tableName: "shop_sku",
-    timestamps: true,
+    timestamps: false,
+    hooks: {
+      beforeCreate: (record) => {
+        const now = Date.now();
+        if (!record.createdAt) {
+          record.createdAt = now;
+        }
+        if (!record.updatedAt) {
+          record.updatedAt = now;
+        }
+      },
+      beforeUpdate: (record) => {
+        record.updatedAt = Date.now();
+      },
+    },
   }
 );
 
@@ -53,7 +77,8 @@ async function createSku(data, options = {}) {
 }
 
 async function updateSkuById(id, data, options = {}) {
-  return ShopSku.update(data, { where: { id }, ...options });
+  const updateData = { ...data, updatedAt: Date.now() };
+  return ShopSku.update(updateData, { where: { id }, ...options });
 }
 
 async function deleteSkuById(id, options = {}) {

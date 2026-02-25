@@ -49,6 +49,13 @@ async function deleteSkuAttrLinksByPair(leftRecordId, rightRecordId, options = {
   });
 }
 
+async function deleteSkuAttrLinksBySkuId(skuId, options = {}) {
+  return SkuAttrLink.destroy({
+    where: { leftRecordId: skuId },
+    ...options,
+  });
+}
+
 async function listSkuAttrLinks(filter = {}, options = {}) {
   const where = {};
   if (Array.isArray(filter.leftRecordIds) && filter.leftRecordIds.length) {
@@ -72,5 +79,6 @@ module.exports = {
   createSkuAttrLinks,
   deleteSkuAttrLinkById,
   deleteSkuAttrLinksByPair,
+  deleteSkuAttrLinksBySkuId,
   listSkuAttrLinks,
 };

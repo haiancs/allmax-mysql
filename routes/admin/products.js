@@ -37,6 +37,7 @@ const {
 } = require("../../repos/shopAttrValueRepo");
 const {
   createSkuAttrLinks,
+  deleteSkuAttrLinksBySkuId,
 } = require("../../repos/shopSkuAttrLinkRepo");
 const {
   createSpuCate,
@@ -447,14 +448,7 @@ router.put("/sku/:id", async (req, res) => {
     }, { transaction });
 
     if (Array.isArray(attrValueIds)) {
-      await sequelize.query(
-        "DELETE FROM `mid_4RKieAhGh` WHERE `leftRecordId` = :skuId",
-        {
-          replacements: { skuId: id },
-          type: QueryTypes.DELETE,
-          transaction,
-        }
-      );
+      await deleteSkuAttrLinksBySkuId(id, { transaction });
       if (attrValueIds.length) {
         const links = attrValueIds.map(avId => ({
           id: generateId(),
@@ -485,14 +479,7 @@ router.delete("/sku/:id", async (req, res) => {
   const { id } = req.params;
   const transaction = await sequelize.transaction();
   try {
-    await sequelize.query(
-      "DELETE FROM `mid_4RKieAhGh` WHERE `leftRecordId` = :skuId",
-      {
-        replacements: { skuId: id },
-        type: QueryTypes.DELETE,
-        transaction,
-      }
-    );
+    await deleteSkuAttrLinksBySkuId(id, { transaction });
     await deleteSkuById(id, { transaction });
     await transaction.commit();
     return res.send({
