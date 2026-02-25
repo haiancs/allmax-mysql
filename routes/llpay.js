@@ -8,6 +8,7 @@ const {
   orderQuery,
   securedQuery,
   refundQuery,
+  accpOrderQuery,
 } = require("../integrations/llpay/domains/query/llpayQuery");
 const {
   applyPushPay,
@@ -133,6 +134,12 @@ router.post("/refund-notify", async (req, res) => {
 
 router.post("/order-query", async (req, res) => {
   const result = await orderQuery(req.body);
+  if (!result.ok) return res.status(result.httpStatus).send(result.body);
+  return res.send(result.body);
+});
+
+router.post("/accp/order-query", async (req, res) => {
+  const result = await accpOrderQuery(req.body);
   if (!result.ok) return res.status(result.httpStatus).send(result.body);
   return res.send(result.body);
 });

@@ -6,7 +6,6 @@ const { checkConnection } = require('../db');
 
 const router = express.Router();
 
-// 常量定义，假设 SPU_SELLING_STATUS 为 'ENABLED'
 const SPU_SELLING_STATUS = 'active';
 
 // 中间件：检查数据库连接
