@@ -108,18 +108,27 @@ async function applyPushPay(body) {
   const deliveryInfo =
     deliveryInfoRow?.get ? deliveryInfoRow.get({ plain: true }) : deliveryInfoRow;
   const user = userRow?.get ? userRow.get({ plain: true }) : userRow;
-  const bondedRequestData =
-    bonded?.requestData && typeof bonded.requestData === "string"
-      ? tryParseJsonObject(bonded.requestData)
-      : bonded?.requestData || null;
+  
+  const bondedPayload = 
+    (bonded?.request_payload && typeof bonded.request_payload === "string" ? tryParseJsonObject(bonded.request_payload) : bonded?.request_payload) ||
+    (bonded?.requestData && typeof bonded.requestData === "string" ? tryParseJsonObject(bonded.requestData) : bonded?.requestData) ||
+    null;
+
+  const payloadBuyerName = bondedPayload?.customsDeclareInfo?.buyerName || bondedPayload?.receiverInfo?.name;
+  const payloadIdNo = bondedPayload?.customsDeclareInfo?.buyerIDNo;
+  const payloadPhone = bondedPayload?.customsDeclareInfo?.contactNo || bondedPayload?.receiverInfo?.contactNo;
 
   const userName =
     safeTrim(reqBody.user_name || reqBody.userName) ||
-    safeTrim(user?.nickname) ||
+    safeTrim(payloadBuyerName) ||
+    safeTrim(bonded?.buyerName) ||
     safeTrim(bonded?.receiverName) ||
-    safeTrim(deliveryInfo?.name);
+    safeTrim(deliveryInfo?.name) ||
+    safeTrim(user?.nickname);
   const idNo =
     safeTrim(reqBody.id_no || reqBody.idNo) ||
+    safeTrim(payloadIdNo) ||
+    safeTrim(bonded?.buyerIdNumber) ||
     safeTrim(bonded?.receiverIdCard) ||
     safeTrim(deliveryInfo?.idCard);
   const idType =
@@ -127,6 +136,7 @@ async function applyPushPay(body) {
     (idNo ? "01" : "");
   const phone =
     safeTrim(reqBody.phone) ||
+    safeTrim(payloadPhone) ||
     safeTrim(bonded?.receiverPhone) ||
     safeTrim(deliveryInfo?.phone);
 

@@ -2,6 +2,7 @@ const express = require('express');
 const { Op } = require('sequelize');
 const { ShopSpu } = require('../repos/shopSpuRepo');
 const { ShopSku } = require('../repos/shopSkuRepo');
+const { SpuCateLink } = require('../repos/shopSpuCateLinkRepo');
 const { checkConnection } = require('../db');
 
 const router = express.Router();
@@ -26,7 +27,7 @@ const checkDbConnection = (req, res, next) => {
  */
 router.post('/goods/list-with-price', checkDbConnection, async (req, res) => {
   try {
-    const { pageSize: pageSizeRaw, pageNumber: pageNumberRaw, search } = req.body;
+    const { pageSize: pageSizeRaw, pageNumber: pageNumberRaw, search, cateId } = req.body;
 
     const pageSize = Number(pageSizeRaw) || 20;
     const pageNumber = Number(pageNumberRaw) || 1;
@@ -40,6 +41,34 @@ router.post('/goods/list-with-price', checkDbConnection, async (req, res) => {
     if (search && typeof search === 'string' && search.trim()) {
       where.name = {
         [Op.like]: `%${search.trim()}%`,
+      };
+    }
+
+    // 如果传入了 cateId，先查询关联表获取 spuId 列表
+    if (cateId && typeof cateId === 'string' && cateId.trim()) {
+      const links = await SpuCateLink.findAll({
+        where: {
+          categoryId: cateId.trim(),
+        },
+        attributes: ['spuId'],
+      });
+
+      const spuIds = links.map((link) => link.spuId);
+
+      // 如果分类下没有商品，直接返回空
+      if (!spuIds.length) {
+        return res.send({
+          code: 0,
+          data: {
+            records: [],
+            total: 0,
+          },
+        });
+      }
+
+      // 添加 spuId 过滤条件
+      where.id = {
+        [Op.in]: spuIds,
       };
     }
 
@@ -131,7 +160,7 @@ router.post('/goods/list-with-price', checkDbConnection, async (req, res) => {
  */
 router.post('/goods/list', checkDbConnection, async (req, res) => {
   try {
-    const { pageSize: pageSizeRaw, pageNumber: pageNumberRaw, search } = req.body;
+    const { pageSize: pageSizeRaw, pageNumber: pageNumberRaw, search, cateId } = req.body;
 
     const pageSize = Number(pageSizeRaw) || 20;
     const pageNumber = Number(pageNumberRaw) || 1;
@@ -145,6 +174,34 @@ router.post('/goods/list', checkDbConnection, async (req, res) => {
     if (search && typeof search === 'string' && search.trim()) {
       where.name = {
         [Op.like]: `%${search.trim()}%`,
+      };
+    }
+
+    // 如果传入了 cateId，先查询关联表获取 spuId 列表
+    if (cateId && typeof cateId === 'string' && cateId.trim()) {
+      const links = await SpuCateLink.findAll({
+        where: {
+          categoryId: cateId.trim(),
+        },
+        attributes: ['spuId'],
+      });
+
+      const spuIds = links.map((link) => link.spuId);
+
+      // 如果分类下没有商品，直接返回空
+      if (!spuIds.length) {
+        return res.send({
+          code: 0,
+          data: {
+            records: [],
+            total: 0,
+          },
+        });
+      }
+
+      // 添加 spuId 过滤条件
+      where.id = {
+        [Op.in]: spuIds,
       };
     }
 

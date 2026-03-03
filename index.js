@@ -30,6 +30,7 @@ const llpaySecuredTxnRouter = require("./routes/llpay/securedTxnRoutes");
 const cainiaoRouter = require("./routes/cainiao");
 const adminRouter = require("./routes/admin");
 const appLogger = require("./utils/logger");
+const auditLogger = require("./middleware/auditLogger");
 
 const app = express();
 app.use(express.urlencoded({ extended: false }));
@@ -40,7 +41,12 @@ const corsOptions = {
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
 };
 app.use(cors(corsOptions));
-app.use(morgan("tiny", { stream: appLogger.stream }));
+
+// 使用 morgan 输出简洁日志到控制台，方便开发调试
+app.use(morgan("tiny"));
+// 使用自定义审计中间件记录详细日志到数据库
+app.use(auditLogger);
+
 app.use("/api", orderQueryRoutes);
 app.use("/api/distribution", distributionRouter);
 app.use("/api/shop", shopRouter);

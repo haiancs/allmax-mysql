@@ -6,6 +6,7 @@ const express = require("express");
 const { checkConnection, sequelize } = require("../db");
 const { requestCainiao } = require("../utils/cainiaoClient");
 const { createCainiaoDeliveryOrder } = require("../services/cainiaoDeliveryService");
+const { handleConsignNotify, handleRefundConfirm } = require("../services/cainiaoCallbackService");
 
 const router = express.Router();
 
@@ -323,6 +324,64 @@ router.post("/global-sale/order/refund-notify", async (req, res) => {
   }
 
   return res.send({ code: 0, data: result });
+});
+
+// 处理来自云函数转发的菜鸟回调
+router.post("/callback", async (req, res) => {
+  if (!checkConnection()) {
+    return res.status(503).send({
+      code: -1,
+      message: "数据库未连接",
+      data: null,
+    });
+  }
+
+  const { msg_type, logistics_interface } = req.body;
+  
+  if (!msg_type || !logistics_interface) {
+    return res.status(400).send({
+      code: -1,
+      message: "缺少 msg_type 或 logistics_interface",
+    });
+  }
+
+  console.log(`[Cainiao Callback] Received ${msg_type}`, JSON.stringify(logistics_interface));
+
+  try {
+    let result = { success: true };
+
+    // 开启事务处理业务逻辑
+    await sequelize.transaction(async (t) => {
+      switch (msg_type) {
+        case "CONSIGN_ORDER_NOTIFY": // 4.2 订单出库及包裹信息回传
+        case "GLOBAL_SALE_ORDER_CONSIGN_NOTIFY": // 全球售出库通知
+          await handleConsignNotify(sequelize, logistics_interface, t);
+          console.log("Processed CONSIGN_ORDER_NOTIFY");
+          break;
+          
+        case "GLOBAL_SALE_ORDER_REFUND_CONFIRM": // 5.3 销退单逆向入库确认
+          await handleRefundConfirm(sequelize, logistics_interface, t);
+          console.log("Processed GLOBAL_SALE_ORDER_REFUND_CONFIRM");
+          break;
+
+        default:
+          console.warn(`[Cainiao Callback] Unhandled msg_type: ${msg_type}`);
+          // 对于不处理的消息类型，也返回成功以避免菜鸟重试
+      }
+    });
+
+    res.send({
+      code: 0,
+      message: "success",
+      data: result,
+    });
+  } catch (error) {
+    console.error(`[Cainiao Callback] Error processing ${msg_type}:`, error);
+    res.status(500).send({
+      code: -1,
+      message: error.message || "Internal Server Error",
+    });
+  }
 });
 
 module.exports = router;

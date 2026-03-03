@@ -612,6 +612,34 @@ async function createCainiaoDeliveryOrder({
     };
   }
 
+  // 插入 bonded_warehouse_orders 记录
+  try {
+    const crypto = require("crypto");
+    const now = Date.now();
+    const cainiaoOrderCode = result.logistic_order_code || "";
+    
+    await sequelize.query(
+      `INSERT INTO \`bonded_warehouse_orders\` 
+       (\`_id\`, \`orderId\`, \`cainiao_order_code\`, \`status\`, \`request_payload\`, \`response_payload\`, \`pushed_at\`, \`created_at\`, \`updated_at\`)
+       VALUES (:id, :orderId, :cainiaoOrderCode, 'PUSHED', :requestPayload, :responsePayload, :pushedAt, :createdAt, :updatedAt)`,
+      {
+        replacements: {
+          id: crypto.randomUUID(),
+          orderId,
+          cainiaoOrderCode,
+          requestPayload: JSON.stringify(orderPayload),
+          responsePayload: JSON.stringify(result),
+          pushedAt: now,
+          createdAt: now,
+          updatedAt: now,
+        },
+      }
+    );
+  } catch (err) {
+    console.error("Failed to insert bonded_warehouse_orders:", err);
+    // 不阻断流程
+  }
+
   return { ok: true, code: "OK", error: null, data: result, missingFields: [], deliveryOrder: orderPayload };
 }
 
