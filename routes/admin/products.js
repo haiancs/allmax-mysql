@@ -145,9 +145,9 @@ router.get("/spu", async (req, res) => {
 
     const items = rows.map(row => {
       const spu = row.toJSON();
-      spu.categories = categoryLinks
-        .filter(link => link.spuId === spu.id)
-        .map(link => ({ id: link.cateId, name: link.cateName }));
+      const spuCategories = categoryLinks.filter(link => link.spuId === spu.id);
+      spu.categories = spuCategories.map(link => ({ id: link.cateId, name: link.cateName }));
+      spu.categoryIds = spuCategories.map(link => link.cateId);
       return spu;
     });
 

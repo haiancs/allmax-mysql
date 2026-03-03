@@ -20,22 +20,44 @@ const SpuCateLink = sequelize.define(
       allowNull: false,
       field: "spu_id",
     },
+    createdAt: {
+      type: DataTypes.BIGINT,
+      allowNull: true,
+      field: "createdAt",
+    },
+    updatedAt: {
+      type: DataTypes.BIGINT,
+      allowNull: true,
+      field: "updatedAt",
+    },
   },
   {
     tableName: "shop_spu_category_links",
-    timestamps: true,
+    timestamps: false,
   }
 );
 
 async function createSpuCateLink(data, options = {}) {
-  return SpuCateLink.create(data, options);
+  const now = Date.now();
+  const dataToCreate = {
+    ...data,
+    createdAt: data.createdAt || now,
+    updatedAt: data.updatedAt || now,
+  };
+  return SpuCateLink.create(dataToCreate, options);
 }
 
 async function createSpuCateLinks(records, options = {}) {
   if (!records || !records.length) {
     return [];
   }
-  return SpuCateLink.bulkCreate(records, options);
+  const now = Date.now();
+  const recordsToCreate = records.map(record => ({
+    ...record,
+    createdAt: record.createdAt || now,
+    updatedAt: record.updatedAt || now,
+  }));
+  return SpuCateLink.bulkCreate(recordsToCreate, options);
 }
 
 async function deleteSpuCateLinkById(id, options = {}) {
