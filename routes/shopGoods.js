@@ -22,8 +22,53 @@ const checkDbConnection = (req, res, next) => {
 };
 
 /**
- * 获取商品列表（带价格）
- * 对应原来的 /goods/list 逻辑
+ * @swagger
+ * /shop/goods/list-with-price:
+ *   post:
+ *     summary: Get goods list with price
+ *     tags: [Shop]
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               pageSize:
+ *                 type: integer
+ *                 default: 20
+ *               pageNumber:
+ *                 type: integer
+ *                 default: 1
+ *               search:
+ *                 type: string
+ *                 description: Search keyword for product name
+ *               cateId:
+ *                 type: string
+ *                 description: Category ID to filter by
+ *     responses:
+ *       200:
+ *         description: List retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 0
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     records:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                     total:
+ *                       type: integer
+ *       503:
+ *         description: Database not connected
+ *       500:
+ *         description: Server error
  */
 router.post('/goods/list-with-price', checkDbConnection, async (req, res) => {
   try {

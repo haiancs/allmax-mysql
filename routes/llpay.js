@@ -67,6 +67,34 @@ function normalizeJsonValue(value) {
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * /llpay/pay:
+ *   post:
+ *     summary: Create payment
+ *     tags: [LLPay]
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             description: Payment parameters depending on payment type
+ *     responses:
+ *       200:
+ *         description: Payment created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 0
+ *                 data:
+ *                   type: object
+ *       503:
+ *         description: Database not connected
+ */
 router.post("/pay", async (req, res) => {
   if (!checkConnection()) {
     return res.status(503).send({
@@ -80,6 +108,42 @@ router.post("/pay", async (req, res) => {
   return res.send(result.body);
 });
 
+/**
+ * @swagger
+ * /llpay/refund-notify:
+ *   post:
+ *     summary: Refund notification callback
+ *     tags: [LLPay]
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - refund_seqno
+ *             properties:
+ *               refund_seqno:
+ *                 type: string
+ *               ret_code:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Notification processed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 0
+ *                 data:
+ *                   type: object
+ *       400:
+ *         description: Missing required fields
+ *       500:
+ *         description: Server error
+ */
 router.post("/refund-notify", async (req, res) => {
   if (!checkConnection()) {
     return res.status(503).send({
@@ -132,18 +196,95 @@ router.post("/refund-notify", async (req, res) => {
   return res.send({ code: 0, data: { refundNo, status, updated: affectedRows } });
 });
 
+/**
+ * @swagger
+ * /llpay/order-query:
+ *   post:
+ *     summary: Query order status
+ *     tags: [LLPay]
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Order status retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 0
+ *                 data:
+ *                   type: object
+ */
 router.post("/order-query", async (req, res) => {
   const result = await orderQuery(req.body);
   if (!result.ok) return res.status(result.httpStatus).send(result.body);
   return res.send(result.body);
 });
 
+/**
+ * @swagger
+ * /llpay/accp/order-query:
+ *   post:
+ *     summary: Query ACCP order status
+ *     tags: [LLPay]
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Order status retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 0
+ *                 data:
+ *                   type: object
+ */
 router.post("/accp/order-query", async (req, res) => {
   const result = await accpOrderQuery(req.body);
   if (!result.ok) return res.status(result.httpStatus).send(result.body);
   return res.send(result.body);
 });
 
+/**
+ * @swagger
+ * /llpay/openacct/individual-apply:
+ *   post:
+ *     summary: Apply for individual open account
+ *     tags: [LLPay]
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Application submitted
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 0
+ *                 data:
+ *                   type: object
+ *       503:
+ *         description: Database not connected
+ */
 router.post("/openacct/individual-apply", async (req, res) => {
   if (!checkConnection()) {
     return res.status(503).send({
@@ -157,6 +298,33 @@ router.post("/openacct/individual-apply", async (req, res) => {
   return res.send(result.body);
 });
 
+/**
+ * @swagger
+ * /llpay/customs/apply-pushpay:
+ *   post:
+ *     summary: Apply for customs push payment
+ *     tags: [LLPay]
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Application submitted
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 0
+ *                 data:
+ *                   type: object
+ *       503:
+ *         description: Database not connected
+ */
 router.post("/customs/apply-pushpay", async (req, res) => {
   if (!checkConnection()) {
     return res.status(503).send({
@@ -170,12 +338,64 @@ router.post("/customs/apply-pushpay", async (req, res) => {
   return res.send(result.body);
 });
 
+/**
+ * @swagger
+ * /llpay/customs/query-pushpay:
+ *   post:
+ *     summary: Query customs push payment info
+ *     tags: [LLPay]
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Info retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 0
+ *                 data:
+ *                   type: object
+ */
 router.post("/customs/query-pushpay", async (req, res) => {
   const result = await queryPushPayInfo(req.body);
   if (!result.ok) return res.status(result.httpStatus).send(result.body);
   return res.send(result.body);
 });
 
+/**
+ * @swagger
+ * /llpay/secured-query:
+ *   post:
+ *     summary: Query secured transaction status
+ *     tags: [LLPay]
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Status retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 0
+ *                 data:
+ *                   type: object
+ *       500:
+ *         description: Server error
+ */
 router.post("/secured-query", async (req, res) => {
   try {
     const result = await securedQuery(req.body);
@@ -190,12 +410,73 @@ router.post("/secured-query", async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /llpay/refund-query:
+ *   post:
+ *     summary: Query refund status
+ *     tags: [LLPay]
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Status retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 0
+ *                 data:
+ *                   type: object
+ */
 router.post("/refund-query", async (req, res) => {
   const result = await refundQuery(req.body);
   if (!result.ok) return res.status(result.httpStatus).send(result.body);
   return res.send(result.body);
 });
 
+/**
+ * @swagger
+ * /llpay/openapi:
+ *   post:
+ *     summary: Proxy request to LLPay OpenAPI
+ *     tags: [LLPay]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               path:
+ *                 type: string
+ *               method:
+ *                 type: string
+ *                 default: POST
+ *               body:
+ *                 type: object
+ *     responses:
+ *       200:
+ *         description: Request successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 0
+ *                 data:
+ *                   type: object
+ *       500:
+ *         description: Server error
+ */
 router.post("/openapi", async (req, res) => {
   const path = req.body && typeof req.body.path === "string" ? req.body.path : "";
   const method =

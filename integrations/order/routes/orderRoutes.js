@@ -9,7 +9,58 @@ const { cartSubmit } = require("../domains/cartSubmit");
 
 const router = express.Router();
 
-// 创建订单
+/**
+ * @swagger
+ * /shop/orders:
+ *   post:
+ *     summary: Create a new order
+ *     tags: [Orders]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               userId:
+ *                 type: string
+ *                 description: The user ID
+ *               clientOrderNo:
+ *                 type: string
+ *                 description: Unique client order number
+ *               addressId:
+ *                 type: string
+ *                 description: Address ID or raw address string
+ *               isDistributor:
+ *                 type: boolean
+ *                 description: Whether the user is a distributor
+ *               orderItems:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     skuId:
+ *                       type: string
+ *                     count:
+ *                       type: integer
+ *     responses:
+ *       200:
+ *         description: Order created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 0
+ *                 data:
+ *                   type: object
+ *       400:
+ *         description: Bad request
+ *       500:
+ *         description: Server error
+ */
 router.post("/orders", async (req, res) => {
   if (!checkConnection()) {
     return res.status(503).send({

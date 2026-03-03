@@ -12,6 +12,56 @@ function generateId() {
   return crypto.randomBytes(16).toString("hex");
 }
 
+/**
+ * @swagger
+ * /shop/cart/add:
+ *   post:
+ *     summary: Add item to shopping cart
+ *     tags: [Shop]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - user
+ *               - skuId
+ *               - addCount
+ *             properties:
+ *               user:
+ *                 type: string
+ *                 description: User ID
+ *               skuId:
+ *                 type: string
+ *                 description: SKU ID to add
+ *               addCount:
+ *                 type: integer
+ *                 description: Quantity to add (must be positive integer)
+ *               distributionRecordId:
+ *                 type: string
+ *                 description: Optional distribution record ID
+ *     responses:
+ *       200:
+ *         description: Item added successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 0
+ *                 data:
+ *                   type: object
+ *                   description: Updated cart item count or similar info
+ *       400:
+ *         description: Invalid input parameters
+ *       500:
+ *         description: Server error
+ *       503:
+ *         description: Database not connected
+ */
 router.post("/cart/add", async (req, res) => {
   if (!checkConnection()) {
     return res.status(503).send({

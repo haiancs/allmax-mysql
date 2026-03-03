@@ -212,9 +212,76 @@
 }
 ```
 
+### 5) 取消订单（更新订单状态）
+
+- 路径：`POST /api/shop/orders/:orderId/cancel`
+- 入口实现：[shop.js](file:///Users/chenshuang/pp/allmax-backend/routes/shop.js#L198-L257)
+
+请求参数：
+
+- `orderId`（string，必填，路径参数或 body 传入）
+
+请求示例：
+
+```
+POST /api/shop/orders/ORDER_ID/cancel
+```
+
+响应示例（简化）：
+
+```json
+{ "code": 0, "data": { "order": { "_id": "ORDER_ID", "status": "CANCELED" } } }
+```
+
+### 6) 确认收货（更新订单状态）
+
+- 路径：`POST /api/shop/orders/:orderId/confirm-received`
+- 入口实现：[shop.js](file:///Users/chenshuang/pp/allmax-backend/routes/shop.js#L259-L318)
+
+请求参数：
+
+- `orderId`（string，必填，路径参数或 body 传入）
+
+请求示例：
+
+```
+POST /api/shop/orders/ORDER_ID/confirm-received
+```
+
+响应示例（简化）：
+
+```json
+{ "code": 0, "data": { "order": { "_id": "ORDER_ID", "status": "FINISHED" } } }
+```
+
+### 7) 标记已支付/待发货（更新订单状态）
+
+- 路径：`POST /api/shop/orders/:orderId/mark-paid-or-to-send`
+- 入口实现：[shop.js](file:///Users/chenshuang/pp/allmax-backend/routes/shop.js#L320-L379)
+
+请求参数：
+
+- `orderId`（string，必填，路径参数或 body 传入）
+
+请求示例：
+
+```
+POST /api/shop/orders/ORDER_ID/mark-paid-or-to-send
+```
+
+响应示例（简化）：
+
+```json
+{ "code": 0, "data": { "order": { "_id": "ORDER_ID", "status": "TO_SEND" } } }
+```
+
+### 8) 订单删除
+
+当前路由层未实现订单删除接口。如需删除订单，需要新增对应路由与服务层实现。
+
 ## 商品接口
 
-### 1) 获取某个 SPU 下的 SKU + 属性
+### 1) 获取某个 SPU 下的 SKU + 属性（查询）
 
 - 路径：`GET /api/shop/getAllSkuWithAttrValues`
 - 备用：`POST /api/shop/getAllSkuWithAttrValues`
@@ -248,7 +315,7 @@
 }
 ```
 
-### 2) 更新 SKU 库存（增减）
+### 2) 更新 SKU 库存（更新）
 
 - 路径：`POST /api/shop_sku/update-count`
 - 入口实现：[index.js](file:///Users/chenshuang/pp/allmax-backend/index.js#L59-L114)
@@ -270,65 +337,12 @@
 { "code": 0, "data": { "skuId": "SKU_ID", "delta": -1 } }
 ```
 
-### 3) 商品管理（创建/更新/删除）
+### 3) 商品创建/更新（CSV 导入）
 
-当前路由层未实现 SPU/SKU 的新增、更新、删除接口，仅提供：
+当前路由层未实现 SPU/SKU 的标准新增、更新、删除接口，仅提供：
 
 - SKU 属性查询（上面的 `/getAllSkuWithAttrValues`）
 - 库存调整（`/shop_sku/update-count`）
 - CSV 导入（`POST /api/shop/import/sku-csv`）
 
-如需完整商品 CRUD，需要新增对应路由与服务层实现。
-
-## 购物车接口（订单流程相关）
-
-### 1) 加入购物车
-
-- 路径：`POST /api/shop/cart/add`
-- 入口实现：[shopCart.js](file:///Users/chenshuang/pp/allmax-backend/routes/shopCart.js#L12-L218)
-
-请求参数：
-
-- `user`（string，必填）
-- `skuId`（string，必填）
-- `addCount`（number，必填）
-- `distributionRecordId`（string，可选）
-
-### 2) 获取购物车
-
-- 路径：`GET /api/shop/cart`
-- 入口实现：[shopCart.js](file:///Users/chenshuang/pp/allmax-backend/routes/shopCart.js#L220-L334)
-
-请求参数：
-
-- `user` 或 `userId`（string，必填）
-
-### 3) 修改购物车数量
-
-- 路径：`POST /api/shop/cart/update-count`
-- 入口实现：[shopCart.js](file:///Users/chenshuang/pp/allmax-backend/routes/shopCart.js#L336-L468)
-
-请求参数：
-
-- `id` 或 `cartItemId`（string，必填）
-- `user` 或 `userId`（string，必填）
-- `count`（number，必填）
-
-### 4) 删除购物车项
-
-- 路径：`POST /api/shop/cart/delete`
-- 入口实现：[shopCart.js](file:///Users/chenshuang/pp/allmax-backend/routes/shopCart.js#L471-L565)
-
-请求参数：
-
-- `id` 或 `cartItemId`（string，必填）
-- `user` 或 `userId`（string，必填）
-
-### 5) 清空购物车
-
-- 路径：`POST /api/shop/cart/clear`
-- 入口实现：[shopCart.js](file:///Users/chenshuang/pp/allmax-backend/routes/shopCart.js#L568-L630)
-
-请求参数：
-
-- `user` 或 `userId`（string，必填）
+如需完整商品 CRUD（增删改查）需要新增对应路由与服务层实现。

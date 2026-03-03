@@ -7,6 +7,38 @@ const {
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * /llpay/accp/txn/secured-confirm:
+ *   post:
+ *     summary: Confirm secured transaction
+ *     tags: [LLPay]
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               orderId:
+ *                 type: string
+ *               confirmAmount:
+ *                 type: number
+ *     responses:
+ *       200:
+ *         description: Transaction confirmed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 0
+ *                 data:
+ *                   type: object
+ *       503:
+ *         description: Database not connected
+ */
 router.post("/secured-confirm", async (req, res) => {
   if (!checkConnection()) {
     return res.status(503).send({
@@ -21,6 +53,34 @@ router.post("/secured-confirm", async (req, res) => {
   return res.send(result.body);
 });
 
+/**
+ * @swagger
+ * /llpay/accp/txn/cancel-secured-payment:
+ *   post:
+ *     summary: Cancel secured payment
+ *     tags: [LLPay]
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               orderId:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Payment canceled
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 0
+ *                 data:
+ *                   type: object
+ */
 router.post("/cancel-secured-payment", async (req, res) => {
   const result = await cancelSecuredPayment(req.body);
   if (!result.ok) return res.status(result.httpStatus).send(result.body);

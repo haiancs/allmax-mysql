@@ -3,6 +3,39 @@ const SysLog = require("../../repos/sysLogRepo");
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * /admin/sys_logs:
+ *   get:
+ *     summary: List system logs (Admin)
+ *     tags: [Admin]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: pageSize
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *     responses:
+ *       200:
+ *         description: List retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 0
+ *                 data:
+ *                   type: object
+ *       500:
+ *         description: Server error
+ */
 router.get("/", async (req, res) => {
   try {
     const pageRaw = req.query.page;

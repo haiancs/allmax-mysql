@@ -8,6 +8,47 @@ const {
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * /shop/import/sku-csv:
+ *   post:
+ *     summary: Import SKU CSV data
+ *     tags: [Shop]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               filePath:
+ *                 type: string
+ *                 description: Path to the CSV file
+ *               csvText:
+ *                 type: string
+ *                 description: CSV content as text
+ *               limit:
+ *                 type: integer
+ *                 description: Limit the number of records to process
+ *               dryRun:
+ *                 type: boolean
+ *                 description: If true, only validate without applying changes
+ *     responses:
+ *       200:
+ *         description: Import successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 0
+ *                 data:
+ *                   type: object
+ *       500:
+ *         description: Server error
+ */
 router.post("/import/sku-csv", async (req, res) => {
   if (!checkConnection()) {
     return res.status(503).send({
@@ -41,6 +82,37 @@ router.post("/import/sku-csv", async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /shop/repair/relations:
+ *   post:
+ *     summary: Repair shop relations
+ *     tags: [Shop]
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               dryRun:
+ *                 type: boolean
+ *                 description: If true, only validate without applying changes
+ *     responses:
+ *       200:
+ *         description: Repair successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 0
+ *                 data:
+ *                   type: object
+ *       500:
+ *         description: Server error
+ */
 router.post("/repair/relations", async (req, res) => {
   if (!checkConnection()) {
     return res.status(503).send({
@@ -65,6 +137,46 @@ router.post("/repair/relations", async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /shop/repair/sku-attr-from-csv:
+ *   post:
+ *     summary: Link SKU attribute values from CSV
+ *     tags: [Shop]
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               filePath:
+ *                 type: string
+ *                 description: Path to the CSV file
+ *               csvText:
+ *                 type: string
+ *                 description: CSV content as text
+ *               limit:
+ *                 type: integer
+ *                 description: Limit the number of records to process
+ *               dryRun:
+ *                 type: boolean
+ *                 description: If true, only validate without applying changes
+ *     responses:
+ *       200:
+ *         description: Linking successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 0
+ *                 data:
+ *                   type: object
+ *       500:
+ *         description: Server error
+ */
 router.post("/repair/sku-attr-from-csv", async (req, res) => {
   if (!checkConnection()) {
     return res.status(503).send({

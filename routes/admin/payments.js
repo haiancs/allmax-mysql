@@ -5,6 +5,57 @@ const { QueryTypes } = require("sequelize");
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * /admin/payments:
+ *   get:
+ *     summary: List payments (Admin)
+ *     tags: [Admin]
+ *     parameters:
+ *       - in: query
+ *         name: _id
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: orderId
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: txnSeqno
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: platformTxno
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: pageSize
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *     responses:
+ *       200:
+ *         description: List retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 0
+ *                 data:
+ *                   type: object
+ */
 router.get("/", async (req, res) => {
   const id = typeof req.query._id === "string" ? req.query._id.trim() : "";
   const orderId = typeof req.query.orderId === "string" ? req.query.orderId.trim() : "";

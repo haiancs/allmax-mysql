@@ -116,7 +116,82 @@ async function handleGetAllSkuWithAttrValues(req, res) {
   }
 }
 
+/**
+ * @swagger
+ * /shop/getAllSkuWithAttrValues:
+ *   post:
+ *     summary: Get all SKUs with attribute values for a SPU (POST)
+ *     tags: [Shop]
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - spuId
+ *             properties:
+ *               spuId:
+ *                 type: string
+ *                 description: SPU ID
+ *     responses:
+ *       200:
+ *         description: SKUs retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 0
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *       400:
+ *         description: Missing spuId
+ *       503:
+ *         description: Database not connected
+ *       500:
+ *         description: Server error
+ */
 router.post("/getAllSkuWithAttrValues", handleGetAllSkuWithAttrValues);
+
+/**
+ * @swagger
+ * /shop/getAllSkuWithAttrValues:
+ *   get:
+ *     summary: Get all SKUs with attribute values for a SPU (GET)
+ *     tags: [Shop]
+ *     parameters:
+ *       - in: query
+ *         name: spuId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: SPU ID
+ *     responses:
+ *       200:
+ *         description: SKUs retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 0
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *       400:
+ *         description: Missing spuId
+ *       503:
+ *         description: Database not connected
+ *       500:
+ *         description: Server error
+ */
 router.get("/getAllSkuWithAttrValues", handleGetAllSkuWithAttrValues);
 
 module.exports = router;

@@ -1,0 +1,2316 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Allmax Backend API",
+    "version": "1.0.0",
+    "description": "API documentation for Allmax Backend"
+  },
+  "servers": [
+    {
+      "url": "/api",
+      "description": "Main API server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "paths": {
+    "/cainiao/status": {
+      "get": {
+        "summary": "Check Cainiao configuration status",
+        "tags": [
+          "Cainiao"
+        ],
+        "responses": {
+          "200": {
+            "description": "Status retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "configured": {
+                          "type": "object"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cainiao/deliveryorder/create": {
+      "post": {
+        "summary": "Create Cainiao delivery order (Way B)",
+        "tags": [
+          "Cainiao"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "orderId"
+                ],
+                "properties": {
+                  "orderId": {
+                    "type": "string",
+                    "description": "System Order ID"
+                  },
+                  "traceId": {
+                    "type": "string",
+                    "description": "Optional trace ID"
+                  },
+                  "dryRun": {
+                    "type": "boolean",
+                    "description": "If true, validate only"
+                  },
+                  "debugRequest": {
+                    "type": "boolean",
+                    "description": "If true, log request details"
+                  },
+                  "timeoutMs": {
+                    "type": "integer",
+                    "description": "Request timeout in ms"
+                  },
+                  "overrides": {
+                    "type": "object",
+                    "description": "Override specific fields in the payload"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Delivery order created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or unsupported mode"
+          },
+          "500": {
+            "description": "Server error"
+          },
+          "503": {
+            "description": "Database not connected"
+          }
+        }
+      }
+    },
+    "/distribution/orders": {
+      "post": {
+        "summary": "Create a distribution order",
+        "tags": [
+          "Distribution"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "openId",
+                  "items"
+                ],
+                "properties": {
+                  "openId": {
+                    "type": "string",
+                    "description": "User openId"
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "productId": {
+                          "type": "string"
+                        },
+                        "quantity": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Order created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request (missing fields or product not found)"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/distribution/users/{id}/dashboard": {
+      "get": {
+        "summary": "Get user distribution dashboard",
+        "tags": [
+          "Distribution"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "User ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dashboard data retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/llpay/pay": {
+      "post": {
+        "summary": "Create payment",
+        "tags": [
+          "LLPay"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "Payment parameters depending on payment type"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Payment created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database not connected"
+          }
+        }
+      }
+    },
+    "/llpay/refund-notify": {
+      "post": {
+        "summary": "Refund notification callback",
+        "tags": [
+          "LLPay"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "refund_seqno"
+                ],
+                "properties": {
+                  "refund_seqno": {
+                    "type": "string"
+                  },
+                  "ret_code": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Notification processed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing required fields"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/llpay/order-query": {
+      "post": {
+        "summary": "Query order status",
+        "tags": [
+          "LLPay"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Order status retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/llpay/accp/order-query": {
+      "post": {
+        "summary": "Query ACCP order status",
+        "tags": [
+          "LLPay"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Order status retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/llpay/openacct/individual-apply": {
+      "post": {
+        "summary": "Apply for individual open account",
+        "tags": [
+          "LLPay"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Application submitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database not connected"
+          }
+        }
+      }
+    },
+    "/llpay/customs/apply-pushpay": {
+      "post": {
+        "summary": "Apply for customs push payment",
+        "tags": [
+          "LLPay"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Application submitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database not connected"
+          }
+        }
+      }
+    },
+    "/llpay/customs/query-pushpay": {
+      "post": {
+        "summary": "Query customs push payment info",
+        "tags": [
+          "LLPay"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Info retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/llpay/secured-query": {
+      "post": {
+        "summary": "Query secured transaction status",
+        "tags": [
+          "LLPay"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Status retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/llpay/refund-query": {
+      "post": {
+        "summary": "Query refund status",
+        "tags": [
+          "LLPay"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Status retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/llpay/openapi": {
+      "post": {
+        "summary": "Proxy request to LLPay OpenAPI",
+        "tags": [
+          "LLPay"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  },
+                  "method": {
+                    "type": "string",
+                    "default": "POST"
+                  },
+                  "body": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Request successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/shop/import/sku-csv": {
+      "post": {
+        "summary": "Import SKU CSV data",
+        "tags": [
+          "Shop"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "filePath": {
+                    "type": "string",
+                    "description": "Path to the CSV file"
+                  },
+                  "csvText": {
+                    "type": "string",
+                    "description": "CSV content as text"
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "description": "Limit the number of records to process"
+                  },
+                  "dryRun": {
+                    "type": "boolean",
+                    "description": "If true, only validate without applying changes"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Import successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/shop/repair/relations": {
+      "post": {
+        "summary": "Repair shop relations",
+        "tags": [
+          "Shop"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "dryRun": {
+                    "type": "boolean",
+                    "description": "If true, only validate without applying changes"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Repair successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/shop/repair/sku-attr-from-csv": {
+      "post": {
+        "summary": "Link SKU attribute values from CSV",
+        "tags": [
+          "Shop"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "filePath": {
+                    "type": "string",
+                    "description": "Path to the CSV file"
+                  },
+                  "csvText": {
+                    "type": "string",
+                    "description": "CSV content as text"
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "description": "Limit the number of records to process"
+                  },
+                  "dryRun": {
+                    "type": "boolean",
+                    "description": "If true, only validate without applying changes"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Linking successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/shop/cart/add": {
+      "post": {
+        "summary": "Add item to shopping cart",
+        "tags": [
+          "Shop"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "user",
+                  "skuId",
+                  "addCount"
+                ],
+                "properties": {
+                  "user": {
+                    "type": "string",
+                    "description": "User ID"
+                  },
+                  "skuId": {
+                    "type": "string",
+                    "description": "SKU ID to add"
+                  },
+                  "addCount": {
+                    "type": "integer",
+                    "description": "Quantity to add (must be positive integer)"
+                  },
+                  "distributionRecordId": {
+                    "type": "string",
+                    "description": "Optional distribution record ID"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Item added successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object",
+                      "description": "Updated cart item count or similar info"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input parameters"
+          },
+          "500": {
+            "description": "Server error"
+          },
+          "503": {
+            "description": "Database not connected"
+          }
+        }
+      }
+    },
+    "/shop/goods/list-with-price": {
+      "post": {
+        "summary": "Get goods list with price",
+        "tags": [
+          "Shop"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "pageSize": {
+                    "type": "integer",
+                    "default": 20
+                  },
+                  "pageNumber": {
+                    "type": "integer",
+                    "default": 1
+                  },
+                  "search": {
+                    "type": "string",
+                    "description": "Search keyword for product name"
+                  },
+                  "cateId": {
+                    "type": "string",
+                    "description": "Category ID to filter by"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "List retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "records": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        },
+                        "total": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error"
+          },
+          "503": {
+            "description": "Database not connected"
+          }
+        }
+      }
+    },
+    "/shop/getAllSkuWithAttrValues": {
+      "post": {
+        "summary": "Get all SKUs with attribute values for a SPU (POST)",
+        "tags": [
+          "Shop"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "spuId"
+                ],
+                "properties": {
+                  "spuId": {
+                    "type": "string",
+                    "description": "SPU ID"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "SKUs retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing spuId"
+          },
+          "500": {
+            "description": "Server error"
+          },
+          "503": {
+            "description": "Database not connected"
+          }
+        }
+      },
+      "get": {
+        "summary": "Get all SKUs with attribute values for a SPU (GET)",
+        "tags": [
+          "Shop"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "spuId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "SPU ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "SKUs retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing spuId"
+          },
+          "500": {
+            "description": "Server error"
+          },
+          "503": {
+            "description": "Database not connected"
+          }
+        }
+      }
+    },
+    "/admin/orders": {
+      "get": {
+        "summary": "List orders (Admin)",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "_id",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "userId",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/payments": {
+      "get": {
+        "summary": "List payments (Admin)",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "_id",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "orderId",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "txnSeqno",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "platformTxno",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/products/spu": {
+      "get": {
+        "summary": "List SPUs (Admin)",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "name",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/products/spu/{id}": {
+      "get": {
+        "summary": "Get SPU detail (Admin)",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detail retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/refunds": {
+      "get": {
+        "summary": "List refunds (Admin)",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "orderId",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "refundNo",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/refunds/{refundNo}": {
+      "get": {
+        "summary": "Get refund detail (Admin)",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "refundNo",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detail retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/refunds/{refundNo}/approve": {
+      "post": {
+        "summary": "Approve refund (Admin)",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "refundNo",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "refundReason": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Refund approved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/shop_spu_cate": {
+      "get": {
+        "summary": "List product categories (Admin)",
+        "tags": [
+          "Admin"
+        ],
+        "responses": {
+          "200": {
+            "description": "List retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/admin/sys_logs": {
+      "get": {
+        "summary": "List system logs (Admin)",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "type": "integer",
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/admin/users": {
+      "get": {
+        "summary": "List users (Admin)",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "_id",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "openid",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "phone",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "accpId",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/llpay/accp/txn/secured-confirm": {
+      "post": {
+        "summary": "Confirm secured transaction",
+        "tags": [
+          "LLPay"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "orderId": {
+                    "type": "string"
+                  },
+                  "confirmAmount": {
+                    "type": "number"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Transaction confirmed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database not connected"
+          }
+        }
+      }
+    },
+    "/llpay/accp/txn/cancel-secured-payment": {
+      "post": {
+        "summary": "Cancel secured payment",
+        "tags": [
+          "LLPay"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "orderId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Payment canceled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orders": {
+      "post": {
+        "summary": "Query order list",
+        "tags": [
+          "Orders"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "pageNumber": {
+                    "type": "integer"
+                  },
+                  "pageSize": {
+                    "type": "integer"
+                  },
+                  "status": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "List retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database not connected"
+          }
+        }
+      }
+    },
+    "/order/detail": {
+      "get": {
+        "summary": "Get order detail (GET)",
+        "tags": [
+          "Orders"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "orderId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detail retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database not connected"
+          }
+        }
+      },
+      "post": {
+        "summary": "Get order detail (POST)",
+        "tags": [
+          "Orders"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "orderId"
+                ],
+                "properties": {
+                  "orderId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Detail retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database not connected"
+          }
+        }
+      }
+    },
+    "/shop/orders": {
+      "post": {
+        "summary": "Create a new order",
+        "tags": [
+          "Orders"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "userId": {
+                    "type": "string",
+                    "description": "The user ID"
+                  },
+                  "clientOrderNo": {
+                    "type": "string",
+                    "description": "Unique client order number"
+                  },
+                  "addressId": {
+                    "type": "string",
+                    "description": "Address ID or raw address string"
+                  },
+                  "isDistributor": {
+                    "type": "boolean",
+                    "description": "Whether the user is a distributor"
+                  },
+                  "orderItems": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "skuId": {
+                          "type": "string"
+                        },
+                        "count": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Order created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/shop/refund/apply": {
+      "post": {
+        "summary": "Apply for refund",
+        "tags": [
+          "Refund"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "orderId",
+                  "refundReason"
+                ],
+                "properties": {
+                  "orderId": {
+                    "type": "string"
+                  },
+                  "refundReason": {
+                    "type": "string"
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  },
+                  "imageUrls": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "refundMemo": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Refund applied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "503": {
+            "description": "Database not connected"
+          }
+        }
+      }
+    },
+    "/shop/refund/refund/list": {
+      "post": {
+        "summary": "List refund applications",
+        "tags": [
+          "Refund"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "pageNumber": {
+                    "type": "integer",
+                    "default": 1
+                  },
+                  "pageSize": {
+                    "type": "integer",
+                    "default": 10
+                  },
+                  "status": {
+                    "type": "integer"
+                  },
+                  "orderId": {
+                    "type": "string"
+                  },
+                  "refundNo": {
+                    "type": "string"
+                  },
+                  "userId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "List retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database not connected"
+          }
+        }
+      }
+    },
+    "/shop/refund/refund/cancel": {
+      "post": {
+        "summary": "Cancel refund application",
+        "tags": [
+          "Refund"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "refundNo": {
+                    "type": "string"
+                  },
+                  "orderId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Refund canceled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database not connected"
+          }
+        }
+      }
+    },
+    "/shop/refund/detail": {
+      "post": {
+        "summary": "Get refund detail",
+        "tags": [
+          "Refund"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "refundNo": {
+                    "type": "string"
+                  },
+                  "orderId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Detail retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database not connected"
+          }
+        }
+      }
+    },
+    "/shop/refund/refund/approve": {
+      "post": {
+        "summary": "Approve refund",
+        "tags": [
+          "Refund"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "refundNo": {
+                    "type": "string"
+                  },
+                  "orderId": {
+                    "type": "string"
+                  },
+                  "refundReason": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Refund approved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database not connected"
+          }
+        }
+      }
+    },
+    "/shop/refund/refund/reject": {
+      "post": {
+        "summary": "Reject refund",
+        "tags": [
+          "Refund"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "refundNo": {
+                    "type": "string"
+                  },
+                  "orderId": {
+                    "type": "string"
+                  },
+                  "rejectReason": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Refund rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database not connected"
+          }
+        }
+      }
+    }
+  },
+  "tags": []
+}

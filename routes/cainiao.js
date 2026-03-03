@@ -45,6 +45,29 @@ async function callCainiaoGateway({ msgType, logisticsInterface, common }) {
   return result;
 }
 
+/**
+ * @swagger
+ * /cainiao/status:
+ *   get:
+ *     summary: Check Cainiao configuration status
+ *     tags: [Cainiao]
+ *     responses:
+ *       200:
+ *         description: Status retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 0
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     configured:
+ *                       type: object
+ */
 router.get("/status", async (req, res) => {
   res.send({
     code: 0,
@@ -58,6 +81,59 @@ router.get("/status", async (req, res) => {
   });
 });
 
+/**
+ * @swagger
+ * /cainiao/deliveryorder/create:
+ *   post:
+ *     summary: Create Cainiao delivery order (Way B)
+ *     tags: [Cainiao]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - orderId
+ *             properties:
+ *               orderId:
+ *                 type: string
+ *                 description: System Order ID
+ *               traceId:
+ *                 type: string
+ *                 description: Optional trace ID
+ *               dryRun:
+ *                 type: boolean
+ *                 description: If true, validate only
+ *               debugRequest:
+ *                 type: boolean
+ *                 description: If true, log request details
+ *               timeoutMs:
+ *                 type: integer
+ *                 description: Request timeout in ms
+ *               overrides:
+ *                 type: object
+ *                 description: Override specific fields in the payload
+ *     responses:
+ *       200:
+ *         description: Delivery order created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 0
+ *                 data:
+ *                   type: object
+ *       400:
+ *         description: Invalid input or unsupported mode
+ *       503:
+ *         description: Database not connected
+ *       500:
+ *         description: Server error
+ */
 router.post("/deliveryorder/create", async (req, res) => {
   if (!checkConnection()) {
     return res.status(503).send({

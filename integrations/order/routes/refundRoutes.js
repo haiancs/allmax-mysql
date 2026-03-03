@@ -160,6 +160,54 @@ async function attachRightsItems(applies) {
   }
 }
 
+/**
+ * @swagger
+ * /shop/refund/apply:
+ *   post:
+ *     summary: Apply for refund
+ *     tags: [Refund]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - orderId
+ *               - refundReason
+ *             properties:
+ *               orderId:
+ *                 type: string
+ *               refundReason:
+ *                 type: string
+ *               items:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *               imageUrls:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               refundMemo:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Refund applied
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 0
+ *                 data:
+ *                   type: object
+ *       400:
+ *         description: Invalid input
+ *       503:
+ *         description: Database not connected
+ */
 router.post("/apply", async (req, res) => {
   if (!checkConnection()) {
     return res.status(503).send({
@@ -290,6 +338,48 @@ router.post("/apply", async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /shop/refund/refund/list:
+ *   post:
+ *     summary: List refund applications
+ *     tags: [Refund]
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               pageNumber:
+ *                 type: integer
+ *                 default: 1
+ *               pageSize:
+ *                 type: integer
+ *                 default: 10
+ *               status:
+ *                 type: integer
+ *               orderId:
+ *                 type: string
+ *               refundNo:
+ *                 type: string
+ *               userId:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: List retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 0
+ *                 data:
+ *                   type: object
+ *       503:
+ *         description: Database not connected
+ */
 router.post("/refund/list", async (req, res) => {
   if (!checkConnection()) {
     return res.status(503).send({
@@ -339,6 +429,38 @@ router.post("/refund/list", async (req, res) => {
   return res.send({ code: 0, data: { records: listRes.rows, total: listRes.total } });
 });
 
+/**
+ * @swagger
+ * /shop/refund/refund/cancel:
+ *   post:
+ *     summary: Cancel refund application
+ *     tags: [Refund]
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               refundNo:
+ *                 type: string
+ *               orderId:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Refund canceled
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 0
+ *                 data:
+ *                   type: object
+ *       503:
+ *         description: Database not connected
+ */
 router.post("/refund/cancel", async (req, res) => {
   if (!checkConnection()) {
     return res.status(503).send({
@@ -442,6 +564,38 @@ router.post("/refund/cancel", async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /shop/refund/detail:
+ *   post:
+ *     summary: Get refund detail
+ *     tags: [Refund]
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               refundNo:
+ *                 type: string
+ *               orderId:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Detail retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 0
+ *                 data:
+ *                   type: object
+ *       503:
+ *         description: Database not connected
+ */
 router.post("/detail", async (req, res) => {
   if (!checkConnection()) {
     return res.status(503).send({
@@ -466,6 +620,40 @@ router.post("/detail", async (req, res) => {
   return res.send({ code: 0, data: detailRes.row });
 });
 
+/**
+ * @swagger
+ * /shop/refund/refund/approve:
+ *   post:
+ *     summary: Approve refund
+ *     tags: [Refund]
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               refundNo:
+ *                 type: string
+ *               orderId:
+ *                 type: string
+ *               refundReason:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Refund approved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 0
+ *                 data:
+ *                   type: object
+ *       503:
+ *         description: Database not connected
+ */
 router.post("/refund/approve", async (req, res) => {
   if (!checkConnection()) {
     return res.status(503).send({
@@ -558,6 +746,40 @@ router.post("/refund/approve", async (req, res) => {
   return res.send({ code: 0, data: applyRes.body });
 });
 
+/**
+ * @swagger
+ * /shop/refund/refund/reject:
+ *   post:
+ *     summary: Reject refund
+ *     tags: [Refund]
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               refundNo:
+ *                 type: string
+ *               orderId:
+ *                 type: string
+ *               rejectReason:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Refund rejected
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 0
+ *                 data:
+ *                   type: object
+ *       503:
+ *         description: Database not connected
+ */
 router.post("/refund/reject", async (req, res) => {
   if (!checkConnection()) {
     return res.status(503).send({

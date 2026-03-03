@@ -4,8 +4,28 @@ const { listSpuCate } = require("../../repos/shopSpuCateRepo");
 const router = express.Router();
 
 /**
- * 获取所有商品分类（不分页，用于选择器）
- * GET /api/admin/shop_spu_cate
+ * @swagger
+ * /admin/shop_spu_cate:
+ *   get:
+ *     summary: List product categories (Admin)
+ *     tags: [Admin]
+ *     responses:
+ *       200:
+ *         description: List retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 0
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *       500:
+ *         description: Server error
  */
 router.get("/", async (req, res) => {
   try {

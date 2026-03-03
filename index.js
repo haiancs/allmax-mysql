@@ -31,6 +31,8 @@ const cainiaoRouter = require("./routes/cainiao");
 const adminRouter = require("./routes/admin");
 const appLogger = require("./utils/logger");
 const auditLogger = require("./middleware/auditLogger");
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./swagger');
 
 const app = express();
 app.use(express.urlencoded({ extended: false }));
@@ -41,6 +43,13 @@ const corsOptions = {
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
 };
 app.use(cors(corsOptions));
+
+// Swagger UI
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.get('/api-docs.json', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(swaggerSpec);
+});
 
 // 使用 morgan 输出简洁日志到控制台，方便开发调试
 app.use(morgan("tiny"));

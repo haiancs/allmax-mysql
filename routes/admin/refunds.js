@@ -77,8 +77,47 @@ async function updateOrderItemsStatus({ orderId, items, status }) {
 }
 
 /**
- * GET /api/admin/refunds
- * List refunds with pagination and filters
+ * @swagger
+ * /admin/refunds:
+ *   get:
+ *     summary: List refunds (Admin)
+ *     tags: [Admin]
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: orderId
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: refundNo
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: pageSize
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *     responses:
+ *       200:
+ *         description: List retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 0
+ *                 data:
+ *                   type: object
  */
 router.get("/", async (req, res) => {
   const statusRaw = req.query.status;
@@ -115,8 +154,30 @@ router.get("/", async (req, res) => {
 });
 
 /**
- * GET /api/admin/refunds/:refundNo
- * Get refund detail
+ * @swagger
+ * /admin/refunds/{refundNo}:
+ *   get:
+ *     summary: Get refund detail (Admin)
+ *     tags: [Admin]
+ *     parameters:
+ *       - in: path
+ *         name: refundNo
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Detail retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 0
+ *                 data:
+ *                   type: object
  */
 router.get("/:refundNo", async (req, res) => {
   const { refundNo } = req.params;
@@ -135,8 +196,38 @@ router.get("/:refundNo", async (req, res) => {
 });
 
 /**
- * POST /api/admin/refunds/:refundNo/approve
- * Approve refund
+ * @swagger
+ * /admin/refunds/{refundNo}/approve:
+ *   post:
+ *     summary: Approve refund (Admin)
+ *     tags: [Admin]
+ *     parameters:
+ *       - in: path
+ *         name: refundNo
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               refundReason:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Refund approved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 0
+ *                 data:
+ *                   type: object
  */
 router.post("/:refundNo/approve", async (req, res) => {
   if (!checkConnection()) {

@@ -59,6 +59,45 @@ function generateId() {
 
 // --- SPU 接口 ---
 
+/**
+ * @swagger
+ * /admin/products/spu:
+ *   get:
+ *     summary: List SPUs (Admin)
+ *     tags: [Admin]
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: name
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: pageSize
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *     responses:
+ *       200:
+ *         description: List retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 0
+ *                 data:
+ *                   type: object
+ */
 router.get("/spu", async (req, res) => {
   try {
     const status = typeof req.query.status === "string" ? req.query.status.trim() : "";
@@ -132,6 +171,32 @@ router.get("/spu", async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /admin/products/spu/{id}:
+ *   get:
+ *     summary: Get SPU detail (Admin)
+ *     tags: [Admin]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Detail retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 0
+ *                 data:
+ *                   type: object
+ */
 router.get("/spu/:id", async (req, res) => {
   const { id } = req.params;
   try {
