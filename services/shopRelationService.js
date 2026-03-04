@@ -309,7 +309,7 @@ async function repairShopRelations({ sequelize, dryRun }) {
       dryRun: false,
       nowMs,
       before: {
-        mid_shop_spu_shop_spu_c_5oe72yVQ5: Number(spuCateBefore?.[0]?.cnt || 0),
+        shop_spu_category_links: Number(spuCateBefore?.[0]?.cnt || 0),
         mid_4RKieAhGh: Number(skuAttrBefore?.[0]?.cnt || 0),
       },
       after: {
