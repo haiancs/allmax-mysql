@@ -3,7 +3,7 @@ const { Op } = require('sequelize');
 const { ShopSpu } = require('../repos/shopSpuRepo');
 const { ShopSku } = require('../repos/shopSkuRepo');
 const { SpuCateLink } = require('../repos/shopSpuCateLinkRepo');
-const { checkConnection } = require('../db');
+const { checkConnection, sequelize } = require('../db');
 
 const router = express.Router();
 
@@ -72,7 +72,7 @@ const checkDbConnection = (req, res, next) => {
  */
 router.post('/goods/list-with-price', checkDbConnection, async (req, res) => {
   try {
-    const { pageSize: pageSizeRaw, pageNumber: pageNumberRaw, search, cateId } = req.body;
+    const { pageSize: pageSizeRaw, pageNumber: pageNumberRaw, search, cateId, sort, sortType } = req.body;
 
     const pageSize = Number(pageSizeRaw) || 20;
     const pageNumber = Number(pageNumberRaw) || 1;
@@ -117,12 +117,20 @@ router.post('/goods/list-with-price', checkDbConnection, async (req, res) => {
       };
     }
 
+    let order = [['priority', 'DESC']];
+    if (sort === 'price') {
+      const direction = sortType === 'desc' ? 'DESC' : 'ASC';
+      order = [[sequelize.literal('(SELECT MIN(price) FROM shop_sku WHERE shop_sku.spu = ShopSpu._id)'), direction]];
+    } else if (sort === 'date') {
+        order = [['updatedAt', sortType === 'desc' ? 'DESC' : 'ASC']];
+    }
+
     // 查询 SPU 列表
     const { rows: spuList, count: total } = await ShopSpu.findAndCountAll({
       where,
       offset,
       limit: pageSize,
-      order: [['priority', 'DESC']],
+      order,
       attributes: ['id', 'name', 'coverImage', 'priority'], // 选择需要的字段
     });
 
