@@ -5,6 +5,7 @@ const { resolvePayeeUidByDistributionRecordIds } = require("../../../../repos/di
 const {
   resolveOrderItemDistributionPriceColumn,
 } = require("../../../../repos/shopOrderItemRepo");
+const { findDeliveryInfoById } = require("../../../../repos/shopDeliveryInfoRepo");
 const llpayRepo = require("../../repos/llpayRepo");
 const {
   safeTrim,
@@ -16,6 +17,7 @@ const {
   getLLPayHttpStatus,
 } = require("../../../../utils/llpayRouteUtils");
 const { buildPayPayload } = require("./buildPayPayload");
+const accpCityData = require("../../config/accpCityData");
 
 async function createPay({ body, req } = {}) {
   const reqBody = body && typeof body === "object" && !Array.isArray(body) ? body : {};
@@ -181,7 +183,7 @@ async function createPay({ body, req } = {}) {
 
     const [orderRows, itemRows, userRows] = await Promise.all([
       sequelize.query(
-        "SELECT `_id`, `status`, `totalPrice`, `user`, `createdAt`, `updatedAt` FROM `shop_order` WHERE `_id` = :orderId LIMIT 1",
+        "SELECT `_id`, `status`, `totalPrice`, `user`, `createdAt`, `updatedAt`, `delivery_info` FROM `shop_order` WHERE `_id` = :orderId LIMIT 1",
         { replacements: { orderId }, type: QueryTypes.SELECT }
       ),
       sequelize.query(itemQuerySql, { replacements: { orderId }, type: QueryTypes.SELECT }),
@@ -270,6 +272,50 @@ async function createPay({ body, req } = {}) {
     const txnTime = formatDateTimeCN(new Date());
     const busiType = safeTrim(process.env.LLPAY_BUSI_TYPE) || "100002";
 
+    // --- 新增：处理实物风控参数 ---
+    let deliveryFullName = "";
+    let deliveryPhone = "";
+    let deliveryAddrProvince = "";
+    let deliveryAddrCity = "";
+
+    try {
+      const deliveryInfoId = safeTrim(order.delivery_info);
+      if (deliveryInfoId) {
+        const info = await findDeliveryInfoById(deliveryInfoId);
+        if (info) {
+          const deliveryInfo = info.toJSON ? info.toJSON() : info;
+          deliveryFullName = safeTrim(deliveryInfo.name);
+          deliveryPhone = safeTrim(deliveryInfo.phone);
+          const addr = safeTrim(deliveryInfo.address);
+          if (addr) {
+            const parts = parseAddressParts(addr);
+            deliveryAddrProvince = getProvinceCode(parts.province);
+            deliveryAddrCity = getCityCode(parts.city);
+            
+            // Add logging for verification
+            console.log("[LLPAY][createPay] Delivery Info Check:", {
+              deliveryInfoId,
+              name: deliveryFullName,
+              phone: deliveryPhone,
+              rawAddress: addr,
+              parsedParts: parts,
+              mappedCodes: {
+                province: deliveryAddrProvince,
+                city: deliveryAddrCity
+              }
+            });
+          }
+        } else {
+          console.log("[LLPAY][createPay] Delivery info not found for id:", deliveryInfoId);
+        }
+      } else {
+        console.log("[LLPAY][createPay] Order has no delivery_info_id");
+      }
+    } catch (e) {
+      console.error("[LLPAY][createPay] Fetch delivery info failed:", e);
+    }
+    // --- 结束 ---
+
     const payloadResult = buildPayPayload({
       req,
       goods,
@@ -289,6 +335,12 @@ async function createPay({ body, req } = {}) {
       recordPayeeUidById,
       orderAmountFenInt,
       busiType,
+      // 新增参数
+      deliveryFullName,
+      deliveryPhone,
+      deliveryAddrProvince,
+      deliveryAddrCity,
+      frmsWareCategory: "4016", // 默认传4016
     });
 
     if (!payloadResult.ok) {
@@ -372,6 +424,53 @@ async function createPay({ body, req } = {}) {
       body: { code: -1, message: error?.message || "创建支付失败", data: null },
     };
   }
+}
+
+// --- 辅助函数：地址解析与映射 ---
+
+function parseAddressParts(address) {
+  const raw = safeTrim(address);
+  if (!raw) return { province: "", city: "" };
+  // 简单按空格拆分：省 市 ...
+  const parts = raw.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return { province: parts[0], city: parts[1] };
+  }
+  // 如果没有空格，尝试正则提取（简易版）
+  let province = "";
+  let city = "";
+  const provinceMatch = raw.match(/^(.*?(省|自治区|市))/);
+  if (provinceMatch) {
+    province = provinceMatch[1];
+    const rest = raw.slice(province.length);
+    const cityMatch = rest.match(/^(.*?(市|州|盟|地区))/);
+    if (cityMatch) {
+      city = cityMatch[1];
+    }
+  }
+  return { province, city };
+}
+
+
+function getProvinceCode(provinceName) {
+  if (!provinceName) return "";
+  const name = String(provinceName).trim();
+  // 精确匹配或前缀匹配（如“浙江”匹配“浙江省”）
+  const p = accpCityData.find((item) => item.region === name || item.region.startsWith(name) || name.startsWith(item.region));
+  return p ? p.code : "";
+}
+
+function getCityCode(cityName) {
+  if (!cityName) return "";
+  const name = String(cityName).trim();
+  for (const province of accpCityData) {
+    if (province.regionEntitys && Array.isArray(province.regionEntitys)) {
+      // 精确匹配或前缀匹配（如“杭州”匹配“杭州市”）
+      const c = province.regionEntitys.find((item) => item.region === name || item.region.startsWith(name) || name.startsWith(item.region));
+      if (c) return c.code;
+    }
+  }
+  return "";
 }
 
 module.exports = {

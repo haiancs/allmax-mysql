@@ -54,7 +54,15 @@ function buildPayPayload(options = {}) {
     userRegisterTime14,
     goodsName,
     clientIp,
+    frmsWareCategory: options.frmsWareCategory,
+    frmsClientChnl: options.frmsClientChnl,
+    deliveryFullName: options.deliveryFullName,
+    deliveryPhone: options.deliveryPhone,
+    deliveryAddrProvince: options.deliveryAddrProvince,
+    deliveryAddrCity: options.deliveryAddrCity,
   });
+
+  console.log("[LLPAY][buildPayPayload] risk_item:", riskItemStr);
 
   const extendInfoStr = JSON.stringify({
     wx_data: {

@@ -90,20 +90,33 @@ function buildRiskItemJson({
   userRegisterTime14,
   goodsName,
   clientIp,
+  frmsWareCategory,
+  frmsClientChnl,
+  deliveryFullName,
+  deliveryPhone,
+  deliveryAddrProvince,
+  deliveryAddrCity,
 }) {
-  const frmsWareCategory = safeTrim(process.env.LLPAY_FRMS_WARE_CATEGORY) || "4005";
-  const frmsClientChnl = safeTrim(process.env.LLPAY_FRMS_CLIENT_CHNL) || "16";
+  const frmsWareCategoryVal = safeTrim(frmsWareCategory) || safeTrim(process.env.LLPAY_FRMS_WARE_CATEGORY) || "4016";
+  const frmsClientChnlVal = safeTrim(frmsClientChnl) || safeTrim(process.env.LLPAY_FRMS_CLIENT_CHNL) || "16";
   const riskItem = {
-    frms_ware_category: frmsWareCategory,
+    frms_ware_category: frmsWareCategoryVal,
     user_info_mercht_userno: safeTrim(userId),
     user_info_dt_register: ensureTimestamp14(userRegisterTime14),
     user_info_bind_phone: safeTrim(userPhone),
     goods_name: safeTrim(goodsName),
-    frms_client_chnl: frmsClientChnl,
+    frms_client_chnl: frmsClientChnlVal,
+    user_auth_flag: "1",
   };
   const ip = safeTrim(clientIp);
   if (ip) riskItem.frms_ip_addr = ip;
-  riskItem.user_auth_flag = "1";
+
+  // 实物类风控参数
+  if (deliveryFullName) riskItem.delivery_full_name = safeTrim(deliveryFullName);
+  if (deliveryPhone) riskItem.delivery_phone = safeTrim(deliveryPhone);
+  if (deliveryAddrProvince) riskItem.delivery_addr_province = safeTrim(deliveryAddrProvince);
+  if (deliveryAddrCity) riskItem.delivery_addr_city = safeTrim(deliveryAddrCity);
+
   return JSON.stringify(riskItem);
 }
 
