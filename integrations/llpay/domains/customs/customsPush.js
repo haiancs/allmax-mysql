@@ -133,7 +133,7 @@ async function applyPushPay(body) {
     safeTrim(deliveryInfo?.idCard);
   const idType =
     safeTrim(reqBody.id_type || reqBody.idType) ||
-    (idNo ? "01" : "");
+    (idNo ? "IDCARD" : "");
   const phone =
     safeTrim(reqBody.phone) ||
     safeTrim(payloadPhone) ||
