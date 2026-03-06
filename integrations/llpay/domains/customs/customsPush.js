@@ -238,11 +238,17 @@ async function applyPushPay(body) {
  */
 async function queryPushPayInfo(reqBody) {
   const nowTs = ensureTimestamp14(new Date());
-  const txnSeqnoRaw = safeTrim(reqBody.txnSeqno || reqBody.txn_seqno);
+  
+  const orderId = safeTrim(reqBody.orderId || reqBody.order_id);
+  let txnSeqno = safeTrim(reqBody.txnSeqno || reqBody.txn_seqno);
+
+  if (orderId) {
+    txnSeqno = buildCustomsSeqnoFromOrderId(orderId);
+  }
 
   const payload = {
     "timestamp": nowTs, //yyyyMMddHHmmss 发送该请求时的时间
-    "txn_seqno": txnSeqnoRaw,
+    "txn_seqno": txnSeqno,
   };
   const result = await requestLLPayOpenapi({
     path: "/v1/cbpayment/query-pushpayinfo",
