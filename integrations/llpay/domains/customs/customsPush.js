@@ -248,6 +248,7 @@ async function queryPushPayInfo(reqBody) {
     path: "/v1/cbpayment/query-pushpayinfo",
     method: "POST",
     body: payload,
+    baseUrl: "https://openapi.lianlianpay.com/query",
   });
 
   return {
