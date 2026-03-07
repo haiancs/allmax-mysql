@@ -344,7 +344,7 @@ async function buildDeliveryOrderFromDb({ sequelize, orderId, overrides }) {
 
   const itemRowsRes = await safeQuery(
     sequelize,
-    "SELECT oi.`_id` AS `orderItemId`, oi.`sku` AS `skuId`, oi.`count` AS `count`, oi.`distribution_record` AS `distributionRecordId`, s.`price` AS `price`, s.`wholesale_price` AS `wholesalePrice`, s.`cargo_id` AS `cargoId`, sp.`name` AS `spuName`, dr.`share_price` AS `sharePrice` FROM `shop_order_item` oi INNER JOIN `shop_sku` s ON s.`_id` = oi.`sku` LEFT JOIN `shop_spu` sp ON sp.`_id` = s.`spu` LEFT JOIN `shop_distribution_record` dr ON dr.`_id` = oi.`distribution_record` WHERE oi.`order` = :orderId ORDER BY oi.`_id` ASC",
+    "SELECT oi.`_id` AS `orderItemId`, oi.`sku` AS `skuId`, oi.`count` AS `count`, oi.`distribution_record` AS `distributionRecordId`, oi.`price` AS `itemPrice`, oi.`distribution_price` AS `itemDistributionPrice`, s.`price` AS `price`, s.`wholesale_price` AS `wholesalePrice`, s.`cargo_id` AS `cargoId`, sp.`name` AS `spuName`, dr.`share_price` AS `sharePrice` FROM `shop_order_item` oi INNER JOIN `shop_sku` s ON s.`_id` = oi.`sku` LEFT JOIN `shop_spu` sp ON sp.`_id` = s.`spu` LEFT JOIN `shop_distribution_record` dr ON dr.`_id` = oi.`distribution_record` WHERE oi.`order` = :orderId ORDER BY oi.`_id` ASC",
     { replacements: { orderId: id } }
   );
   if (!itemRowsRes.ok) {
@@ -421,9 +421,9 @@ async function buildDeliveryOrderFromDb({ sequelize, orderId, overrides }) {
         "province": "浙江省",
         "city": "宁波市",
         "district": "北仑区",
-        "address": "大碶街道保税南区东环路16号考拉园区",
-        "name": "菜鸟宁波北仑专用保税中心仓A1691",
-        "contactNo": "11111111111"
+        "address": "大碶街道保税南区东环路16号考拉园区315000",
+        "name": "菜鸟保税中心仓",
+        "contactNo": "15250665899"
     },
     refunderInfo: {
         "country": "CN",
@@ -459,24 +459,67 @@ async function buildDeliveryOrderFromDb({ sequelize, orderId, overrides }) {
     },
   };
 
-  baseDeliveryOrder.orderItemList = itemRows.map((row) => {
-    const skuId = safeTrim(row?.skuId);
+  const totalFenFromOrder = toFenFromYuanOrFen(orderRow?.totalPrice);
+  const actualPaymentFen = totalFenFromOrder != null ? totalFenFromOrder : 0;
+
+  // 1. 计算所有商品的基础总价（用于分摊实付金额）
+  let totalBaseFen = 0;
+  const itemBaseInfos = itemRows.map((row) => {
     const quantity = coerceIntOrNull(row?.count) || 0;
+    // 优先级: 快照分销价 > 快照原价 > 当前分销价 > 当前原价 > 平均单价
+    const snapshotDistPriceFen = toFenFromYuanOrFen(row?.itemDistributionPrice);
+    const snapshotPriceFen = toFenFromYuanOrFen(row?.itemPrice);
     const sharePriceFen = toFenFromYuanOrFen(row?.sharePrice);
-    const wholesalePriceFen = toFenFromYuanOrFen(row?.wholesalePrice);
-    const rawPriceFen = toFenFromYuanOrFen(row?.price);
-    const unitPriceFen =
-      sharePriceFen != null && sharePriceFen > 0
-        ? sharePriceFen
-        : isDistributorUser && wholesalePriceFen != null && wholesalePriceFen > 0
-          ? wholesalePriceFen
-          : rawPriceFen != null && rawPriceFen > 0
-            ? rawPriceFen
-            : avgUnitPriceFen > 0
-              ? avgUnitPriceFen
-              : 0;
-    const lineTotalFen = unitPriceFen * quantity;
-    const { netFen: itemTotalPrice, vatFen: vat } = splitVatInclusiveFen(lineTotalFen);
+    const skuPriceFen = toFenFromYuanOrFen(row?.price);
+    
+    let unitPriceFen = 0;
+    if (snapshotDistPriceFen != null && snapshotDistPriceFen > 0) {
+      unitPriceFen = snapshotDistPriceFen;
+    } else if (snapshotPriceFen != null && snapshotPriceFen > 0) {
+      unitPriceFen = snapshotPriceFen;
+    } else if (sharePriceFen != null && sharePriceFen > 0) {
+      unitPriceFen = sharePriceFen;
+    } else if (skuPriceFen != null && skuPriceFen > 0) {
+      unitPriceFen = skuPriceFen;
+    } else {
+      unitPriceFen = avgUnitPriceFen > 0 ? avgUnitPriceFen : 0;
+    }
+    
+    const lineBaseTotalFen = unitPriceFen * quantity;
+    totalBaseFen += lineBaseTotalFen;
+
+    return {
+      row,
+      quantity,
+      baseLineTotalFen: lineBaseTotalFen,
+    };
+  });
+  
+  let accumulatedAllocatedFen = 0;
+
+  // 2. 按比例分摊实付金额到每个商品，确保总和严格等于 actualPayment
+  baseDeliveryOrder.orderItemList = itemBaseInfos.map((info, index) => {
+    const { row, quantity, baseLineTotalFen } = info;
+    const isLast = index === itemBaseInfos.length - 1;
+    let lineFinalTotalFen = 0;
+
+    if (isLast) {
+      // 最后一个商品承担剩余金额，消除误差
+      lineFinalTotalFen = actualPaymentFen - accumulatedAllocatedFen;
+      if (lineFinalTotalFen < 0) lineFinalTotalFen = 0;
+    } else {
+      if (totalBaseFen > 0) {
+        // (当前商品基础总价 / 所有商品基础总价) * 实付总金额
+        lineFinalTotalFen = Math.round(actualPaymentFen * (baseLineTotalFen / totalBaseFen));
+      } else {
+        // 兜底：均分
+        lineFinalTotalFen = Math.floor(actualPaymentFen / itemBaseInfos.length);
+      }
+      accumulatedAllocatedFen += lineFinalTotalFen;
+    }
+
+    const { netFen: itemTotalPrice, vatFen: vat } = splitVatInclusiveFen(lineFinalTotalFen);
+    
     const declareInfo = {
       itemTotalPrice,
       vat,
@@ -486,11 +529,12 @@ async function buildDeliveryOrderFromDb({ sequelize, orderId, overrides }) {
       itemTotalActualPrice: itemTotalPrice,
     };
 
+    const skuId = safeTrim(row?.skuId);
     return {
       itemQuantity: quantity,
       declareInfo,
       extItemId: skuId || undefined,
-      itemId: safeTrim(row?.cargoId) || "",// 需要注意
+      itemId: safeTrim(row?.cargoId) || "",
       itemName: safeTrim(row?.spuName) || undefined,
     };
   });
@@ -519,8 +563,18 @@ async function buildDeliveryOrderFromDb({ sequelize, orderId, overrides }) {
   const consumptionTaxFen = 0;
   const totalTaxFen = customsTaxFen + consumptionTaxFen + vatFen;
 
-  const totalFenFromOrder = toFenFromYuanOrFen(orderRow?.totalPrice);
-  const actualPaymentFen = totalFenFromOrder != null ? totalFenFromOrder : 0;
+  // 计算差额作为运费 (实付 - 商品含税总价)
+  const calculatedGoodsTotalFen = goodsTotalPriceFen + totalTaxFen;
+  const diffFen = actualPaymentFen - calculatedGoodsTotalFen;
+  
+  let postFeeFen = 0;
+  let couponFen = 0;
+
+  if (diffFen > 0) {
+      postFeeFen = diffFen;
+  } else if (diffFen < 0) {
+      couponFen = -diffFen;
+  }
 
   merged.orderAmountInfo.dutiablePrice = dutiablePriceFen;
   merged.orderAmountInfo.customsTax = customsTaxFen;
@@ -528,8 +582,8 @@ async function buildDeliveryOrderFromDb({ sequelize, orderId, overrides }) {
   merged.orderAmountInfo.vat = vatFen;
   merged.orderAmountInfo.totalTax = totalTaxFen;
   merged.orderAmountInfo.insurance = 0;
-  merged.orderAmountInfo.coupon = 0;
-  merged.orderAmountInfo.postFee = 0;
+  merged.orderAmountInfo.coupon = couponFen;
+  merged.orderAmountInfo.postFee = postFeeFen;
   merged.orderAmountInfo.actualPayment = actualPaymentFen;
   merged.orderAmountInfo.currency = "CNY";
 
@@ -561,7 +615,7 @@ async function createCainiaoDeliveryOrder({
       missingFields: [],
     };
   }
-
+  console.log("built.deliveryOrder", built);
   const orderPayload = built.deliveryOrder;
 
   const missingFields = validateDeliveryOrder(orderPayload);
@@ -588,6 +642,16 @@ async function createCainiaoDeliveryOrder({
   }
 
   const logisticsInterfacePayload = orderPayload;
+
+  // TODO: 临时熔断，仅返回参数供测试
+  // return {
+  //   ok: true,
+  //   code: "MOCKED",
+  //   error: null,
+  //   data: { mocked: true, payload: logisticsInterfacePayload },
+  //   missingFields: [],
+  //   deliveryOrder: orderPayload,
+  // };
 
   const result = await requestCainiao(
     {

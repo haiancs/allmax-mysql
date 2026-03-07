@@ -6,7 +6,12 @@ const {
 } = require("../../repos/shopOrderRepo");
 const { sequelize } = require("../../db");
 const { QueryTypes } = require("sequelize");
-const { updateOrderStatusInTransaction } = require("../../services/shopOrderService");
+const {
+  updateOrderStatusInTransaction,
+} = require("../../services/shopOrderService");
+const {
+  queryPushPayInfo,
+} = require("../../integrations/llpay/domains/customs/customsPush");
 
 const router = express.Router();
 
@@ -143,13 +148,30 @@ router.get("/:id", async (req, res) => {
   const deliveryInfo = deliveryInfoRows[0] || null;
   const payment = paymentRows[0] || null;
 
+  let pushPayInfo = null;
+  if (payment) {
+    try {
+      const pushRes = await queryPushPayInfo({ orderId: id });
+      if (pushRes.ok && pushRes.body && pushRes.body.data) {
+        pushPayInfo = pushRes.body.data;
+      }
+    } catch (e) {
+      console.error("queryPushPayInfo failed", e);
+    }
+  }
+
   return res.send({
     code: 0,
     data: {
       order,
       items,
       deliveryInfo,
-      payment,
+      payment: payment
+        ? {
+            ...payment,
+            pushPayInfo,
+          }
+        : null,
     },
   });
 });
